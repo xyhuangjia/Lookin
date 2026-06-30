@@ -11,6 +11,22 @@ To use Lookin macOS app, you need to integrate LookinServer (iOS Framework of Lo
 > **Warning**
 Never integrate LookinServer in Release building configuration.
 
+# Standalone CLI
+
+This repository also includes `lookinctl`, an adb-like standalone CLI for apps that integrate LookinServer. It talks to LookinServer directly and does not depend on `Lookin.app`.
+
+Practical skills include:
+
+- list connected LookinServer apps and select targets by serial, bundle id, app name, or index
+- capture high-quality screenshots
+- dump the view hierarchy as JSON
+- find the current business view controller
+- inspect coordinates with hit-test
+- perform best-effort semantic tap with explicit machine-readable failure reasons
+- inspect attributes, selectors, objects, images, gesture recognizers, and runtime patches
+
+See [`LookinCLI/README.md`](LookinCLI/README.md) for CLI usage and [`Docs/lookinctl使用与维护.md`](Docs/lookinctl使用与维护.md) for development, build, publish, and directory structure design.
+
 ## via CocoaPods:
 ### Swift Project
 `pod 'LookinServer', :subspecs => ['Swift'], :configurations => ['Debug']`
@@ -44,6 +60,22 @@ Lookin 可以查看与修改 iOS App 里的 UI 对象，类似于 Xcode 自带�
 
 > **Warning**
 记得不要在 AppStore 模式下集成 LookinServer。
+
+# 独立 CLI
+
+本仓库也包含 `lookinctl`，它是一个接近 adb 命令风格的独立 CLI。它直接连接已集成 LookinServer 的 App，不依赖 `Lookin.app`。
+
+实用能力包括：
+
+- 列出已连接的 LookinServer App，并按 serial、bundle id、App 名称或 index 选择目标
+- 截取高清当前页面截图
+- 导出视图层级 JSON
+- 定位当前业务 View Controller
+- 对坐标执行 hit-test
+- 执行尽力而为的语义点击，并在不可点击时返回明确、可机器读取的失败原因
+- 查看属性、selector、对象、图片、手势状态和运行时 patch
+
+CLI 使用见 [`LookinCLI/README.md`](LookinCLI/README.md)，开发、构建、发布和目录结构设计见 [`Docs/lookinctl使用与维护.md`](Docs/lookinctl使用与维护.md)。
 
 ## 通过 CocoaPods：
 

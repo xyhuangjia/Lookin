@@ -1,0 +1,21 @@
+stages:
+  - publish
+
+publish:lookinctl:npm:
+  stage: publish
+  tags:
+    - macos
+  rules:
+    - if: '$CI_COMMIT_TAG'
+    - when: manual
+  variables:
+    LOOKINCTL_NPM_NAME: "@your-scope/lookinctl"
+    LOOKINCTL_NPM_REGISTRY: "https://npm.example.com"
+  before_script:
+    - npm --version
+    - node --version
+    # Example for scoped registry auth. Replace with your registry/auth pattern.
+    # - npm config set @your-scope:registry "$LOOKINCTL_NPM_REGISTRY"
+    # - npm config set //npm.example.com/:_authToken "$NPM_TOKEN"
+  script:
+    - LookinCLI/package-npm.sh --publish
