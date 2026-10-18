@@ -40,7 +40,7 @@ xcrun --sdk macosx clang \
   -ObjC \
   -DSHOULD_COMPILE_LOOKIN_SERVER=1 \
   -include AppKit/AppKit.h \
-  -mmacosx-version-min=11.0 \
+  -mmacosx-version-min=12.0 \
   -isysroot "${SDK_PATH}" \
   -I"${LOOKIN_SHARED_DIR}/Src/Main/Shared" \
   -I"${LOOKIN_SHARED_DIR}/Src/Main/Shared/Category" \
