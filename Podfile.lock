@@ -11,15 +11,15 @@ PODS:
   - LookinShared (1.2.8)
   - LookinShared/Wireless (1.2.8):
     - CocoaAsyncSocket
-  - ReactiveObjC (3.1.0)
-  - Sparkle (1.27.1)
+  - ReactiveObjC (3.1.1)
+  - Sparkle (2.9.6)
 
 DEPENDENCIES:
   - AppCenter
   - LookinShared (from `../LookinServer/`)
   - LookinShared/Wireless (from `../LookinServer/`)
-  - ReactiveObjC (= 3.1.0)
-  - Sparkle (~> 1.0)
+  - ReactiveObjC (~> 3.1.1)
+  - Sparkle (~> 2.9.6)
 
 SPEC REPOS:
   trunk:
@@ -35,10 +35,10 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   AppCenter: b0eca112a27b71e97488ffa1949ee38c7abd4b79
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
-  LookinShared: 6a5ea30b57825f5d8619726ffc72812b4c025771
-  ReactiveObjC: 2a38ea15335de4119d8b17caf1db1484f61db902
-  Sparkle: 23f98b268284c8c03e6228230fc8f1807ef041d5
+  LookinShared: 5ce5cb5e9dc5dcd617b4da2dc01660df6047e1bc
+  ReactiveObjC: 011caa393aa0383245f2dcf9bf02e86b80b36040
+  Sparkle: b8c9cf4ced217ffc708a1ca5f988a7ba877658db
 
-PODFILE CHECKSUM: ba4ab9c4f24433127983d7ae6ee7d64da923ff77
+PODFILE CHECKSUM: 5230db028128302cb344403b8cb44906a3f5907a
 
 COCOAPODS: 1.17.0

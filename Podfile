@@ -3,14 +3,12 @@ use_frameworks!
 #inhibit_all_warnings!
 
 target 'LookinClient' do
-    platform :osx, '12.0'
+    platform :osx, '14.0'
     pod 'AppCenter'
-    pod 'ReactiveObjC', '3.1.0'
-    pod 'Sparkle', '~> 1.0'
+    pod 'ReactiveObjC', '~> 3.1.1'
+    pod 'Sparkle', '~> 2.9.6'
     pod 'LookinShared', :path=>'../LookinServer/'
     pod 'LookinShared/Wireless', :path=>'../LookinServer/'
-#    pod 'LookinShared', :path=>'../LookinServer/'
-#    pod 'LookinShared/Wireless', :path=>'../LookinServer/'
 end
 
 # ReactiveObjc 之类的 SDK 的 deployment target 太低了导致无法编译，所以这里改成以项目为准
