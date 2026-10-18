@@ -29,10 +29,12 @@ for arch in ${LOOKINCTL_ARCHS}; do
   ARCH_FLAGS+=("-arch" "${arch}")
 done
 
+# 排除 Shared/Channel（无线连接实现）：它依赖 CocoaAsyncSocket，而 CLI 只通过
+# Peertalk/USB 直连 LookinServer，不需要 Channel 符号
 SHARED_SOURCES=()
 while IFS= read -r source_file; do
   SHARED_SOURCES+=("${source_file}")
-done < <(find "${LOOKIN_SHARED_DIR}/Src/Main/Shared" "${LOOKIN_SHARED_DIR}/Src/Base" -name '*.m' | sort)
+done < <(find "${LOOKIN_SHARED_DIR}/Src/Main/Shared" "${LOOKIN_SHARED_DIR}/Src/Base" -name '*.m' -not -path '*/Channel/*' | sort)
 
 xcrun --sdk macosx clang \
   "${ARCH_FLAGS[@]}" \
