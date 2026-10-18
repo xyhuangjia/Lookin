@@ -101,6 +101,9 @@
 	case ECODeviceType_Device:
 		self.iconImageView.image = NSImageMake(@"icon_iphone_big");
 		break;
+	case ECODeviceType_iPad_Device:
+		self.iconImageView.image = NSImageMake(@"icon_ipad_big");
+		break;
 	case ECODeviceType_MacApp:
 		NSAssert(NO, @"");
 		break;
