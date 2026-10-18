@@ -41,6 +41,9 @@ typedef NS_ENUM(NSInteger, LookinMeasureState) {
     LookinMeasureState_locked    // 处于测距模式，且锁定，此时松开手指不会退出测距模式
 };
 
+/// MCP 相关设置发生改变时发出（App 内 MCP server 据此重启/更新状态）
+extern NSString *const LKMCPSettingsDidChangeNotification;
+
 @interface LKPreferenceManager : NSObject
 
 + (instancetype)mainManager;
@@ -72,6 +75,26 @@ typedef NS_ENUM(NSInteger, LookinMeasureState) {
 
 /// 是否自动将选中的 UIView/CALayer 作为控制台的目标对象
 @property(nonatomic, assign) BOOL syncConsoleTarget;
+
+#pragma mark - MCP
+
+/// 是否启用内置 MCP server，默认为 NO
+@property(nonatomic, assign) BOOL mcpEnabled;
+
+/// MCP server 监听端口，默认为 47200
+@property(nonatomic, assign) NSUInteger mcpPort;
+
+/// 是否允许 MCP 修改 UI 属性，默认为 NO
+@property(nonatomic, assign) BOOL mcpAllowWrites;
+
+/// 是否允许 MCP 调用无参 selector，默认为 NO
+@property(nonatomic, assign) BOOL mcpAllowInvoke;
+
+/// invoke 白名单，每行一个无参 selector
+@property(nonatomic, copy) NSString *mcpInvokeAllowlistText;
+
+/// 解析 mcpInvokeAllowlistText 得到的集合
+- (NSSet<NSString *> *)mcpInvokeAllowlist;
 
 // 被折叠的 AttrGroup
 @property(nonatomic, copy) NSArray<LookinAttrGroupIdentifier> *collapsedAttrGroups;

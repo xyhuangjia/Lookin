@@ -16,6 +16,7 @@
 #import "LKPreferenceManager.h"
 #import "LKStaticHierarchyDataSource.h"
 #import "LKWindowController.h"
+#import "Lookin-Swift.h"
 #include <mach-o/dyld.h>
 #import <Sparkle/Sparkle.h>
 @import AppCenter;
@@ -108,7 +109,15 @@ static NSUInteger const kTag_Acknowledgements = 72;
     NSMenuItem *menuItem_preferences = [menu_lookin itemWithTag:kTag_Preferences];
     menuItem_preferences.target = self;
     menuItem_preferences.action = @selector(_handlePreferences);
-    
+
+    // Lookin - MCP Server
+    NSMenuItem *menuItem_mcp = [[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"MCP Server…", nil)
+                                                          action:@selector(_handleMCPSettings)
+                                                   keyEquivalent:@""];
+    menuItem_mcp.target = self;
+    NSInteger preferencesIndex = [menu_lookin indexOfItem:menuItem_preferences];
+    [menu_lookin insertItem:menuItem_mcp atIndex:preferencesIndex + 1];
+
     NSMenuItem *menuItem_checkUpdates = [menu_lookin itemWithTag:kTag_CheckUpdates];
     menuItem_checkUpdates.target = self;
     menuItem_checkUpdates.action = @selector(_handleCheckUpdates);
@@ -251,6 +260,10 @@ static NSUInteger const kTag_Acknowledgements = 72;
 
 - (void)_handlePreferences {
     [[LKNavigationManager sharedInstance] showPreference];
+}
+
+- (void)_handleMCPSettings {
+    [[LKMCPSettingsWindowController shared] present];
 }
 
 - (void)_handleDelegateItem:(NSMenuItem *)item {

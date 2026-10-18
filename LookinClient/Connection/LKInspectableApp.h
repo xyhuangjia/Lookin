@@ -34,6 +34,9 @@
 
 - (RACSignal *)fetchObjectWithOid:(unsigned long)oid;
 
+/// data 为 NSArray<LookinAttributesGroup *>
+- (RACSignal *)fetchAttrGroupListWithOid:(unsigned long)oid;
+
 - (RACSignal *)fetchSelectorNamesWithClass:(NSString *)className hasArg:(BOOL)hasArg;
 
 - (RACSignal *)invokeMethodWithOid:(unsigned long)oid text:(NSString *)text;

@@ -14,6 +14,7 @@
 @import AppCenterAnalytics;
 
 NSString *const NotificationName_DidChangeSectionShowing = @"NotificationName_DidChangeSectionShowing";
+NSString *const LKMCPSettingsDidChangeNotification = @"LKMCPSettingsDidChangeNotification";
 
 NSString *const LKWindowSizeName_Dynamic = @"LKWindowSizeName_Dynamic";
 NSString *const LKWindowSizeName_Static = @"LKWindowSizeName_Static";
@@ -39,6 +40,13 @@ static NSString * const Key_FreeRotation = @"FreeRotation";
 static NSString * const Key_FastMode = @"fastMode";
 static NSString * const Key_ReceivingConfigTime_Color = @"ConfigTime_Color";
 static NSString * const Key_ReceivingConfigTime_Class = @"ConfigTime_Class";
+static NSString * const Key_MCPEnabled = @"mcpEnabled";
+static NSString * const Key_MCPPort = @"mcpPort";
+static NSString * const Key_MCPAllowWrites = @"mcpAllowWrites";
+static NSString * const Key_MCPAllowInvoke = @"mcpAllowInvoke";
+static NSString * const Key_MCPInvokeAllowlist = @"mcpInvokeAllowlist";
+
+static const NSUInteger LKMCPDefaultPort = 47200;
 
 @interface LKPreferenceManager ()
 
@@ -201,8 +209,94 @@ static NSString * const Key_ReceivingConfigTime_Class = @"ConfigTime_Class";
         
         _receivingConfigTime_Color = [userDefaults doubleForKey:Key_ReceivingConfigTime_Color];
         _receivingConfigTime_Class = [userDefaults doubleForKey:Key_ReceivingConfigTime_Class];
+
+        NSNumber *obj_mcpEnabled = [userDefaults objectForKey:Key_MCPEnabled];
+        _mcpEnabled = obj_mcpEnabled ? obj_mcpEnabled.boolValue : NO;
+
+        NSNumber *obj_mcpPort = [userDefaults objectForKey:Key_MCPPort];
+        _mcpPort = obj_mcpPort ? obj_mcpPort.unsignedIntegerValue : LKMCPDefaultPort;
+        if (_mcpPort < 1024 || _mcpPort > 65535) {
+            _mcpPort = LKMCPDefaultPort;
+        }
+
+        NSNumber *obj_mcpAllowWrites = [userDefaults objectForKey:Key_MCPAllowWrites];
+        _mcpAllowWrites = obj_mcpAllowWrites ? obj_mcpAllowWrites.boolValue : NO;
+
+        NSNumber *obj_mcpAllowInvoke = [userDefaults objectForKey:Key_MCPAllowInvoke];
+        _mcpAllowInvoke = obj_mcpAllowInvoke ? obj_mcpAllowInvoke.boolValue : NO;
+
+        _mcpInvokeAllowlistText = [userDefaults objectForKey:Key_MCPInvokeAllowlist] ?: @"";
     }
     return self;
+}
+
+#pragma mark - MCP
+
+- (void)setMcpEnabled:(BOOL)mcpEnabled {
+    if (_mcpEnabled == mcpEnabled) {
+        return;
+    }
+    _mcpEnabled = mcpEnabled;
+    if (self.shouldStoreToLocal) {
+        [[NSUserDefaults standardUserDefaults] setObject:@(mcpEnabled) forKey:Key_MCPEnabled];
+    }
+    [[NSNotificationCenter defaultCenter] postNotificationName:LKMCPSettingsDidChangeNotification object:self];
+}
+
+- (void)setMcpPort:(NSUInteger)mcpPort {
+    if (mcpPort < 1024 || mcpPort > 65535) {
+        mcpPort = LKMCPDefaultPort;
+    }
+    if (_mcpPort == mcpPort) {
+        return;
+    }
+    _mcpPort = mcpPort;
+    if (self.shouldStoreToLocal) {
+        [[NSUserDefaults standardUserDefaults] setObject:@(mcpPort) forKey:Key_MCPPort];
+    }
+    [[NSNotificationCenter defaultCenter] postNotificationName:LKMCPSettingsDidChangeNotification object:self];
+}
+
+- (void)setMcpAllowWrites:(BOOL)mcpAllowWrites {
+    if (_mcpAllowWrites == mcpAllowWrites) {
+        return;
+    }
+    _mcpAllowWrites = mcpAllowWrites;
+    if (self.shouldStoreToLocal) {
+        [[NSUserDefaults standardUserDefaults] setObject:@(mcpAllowWrites) forKey:Key_MCPAllowWrites];
+    }
+    [[NSNotificationCenter defaultCenter] postNotificationName:LKMCPSettingsDidChangeNotification object:self];
+}
+
+- (void)setMcpAllowInvoke:(BOOL)mcpAllowInvoke {
+    if (_mcpAllowInvoke == mcpAllowInvoke) {
+        return;
+    }
+    _mcpAllowInvoke = mcpAllowInvoke;
+    if (self.shouldStoreToLocal) {
+        [[NSUserDefaults standardUserDefaults] setObject:@(mcpAllowInvoke) forKey:Key_MCPAllowInvoke];
+    }
+    [[NSNotificationCenter defaultCenter] postNotificationName:LKMCPSettingsDidChangeNotification object:self];
+}
+
+- (void)setMcpInvokeAllowlistText:(NSString *)mcpInvokeAllowlistText {
+    _mcpInvokeAllowlistText = [mcpInvokeAllowlistText copy] ?: @"";
+    if (self.shouldStoreToLocal) {
+        [[NSUserDefaults standardUserDefaults] setObject:_mcpInvokeAllowlistText forKey:Key_MCPInvokeAllowlist];
+    }
+    [[NSNotificationCenter defaultCenter] postNotificationName:LKMCPSettingsDidChangeNotification object:self];
+}
+
+- (NSSet<NSString *> *)mcpInvokeAllowlist {
+    NSMutableSet<NSString *> *result = [NSMutableSet set];
+    NSArray<NSString *> *lines = [self.mcpInvokeAllowlistText componentsSeparatedByCharactersInSet:NSCharacterSet.newlineCharacterSet];
+    for (NSString *line in lines) {
+        NSString *trimmed = [line stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
+        if (trimmed.length) {
+            [result addObject:trimmed];
+        }
+    }
+    return result.copy;
 }
 
 - (void)_handleShowOutlineDidChange:(LookinMsgActionParams *)param {
@@ -516,6 +610,11 @@ static NSString * const Key_ReceivingConfigTime_Class = @"ConfigTime_Class";
 
 - (void)reset {
     [LKTutorialManager sharedInstance].hasAskedDoubleClickBehavior = NO;
+    self.mcpEnabled = NO;
+    self.mcpPort = LKMCPDefaultPort;
+    self.mcpAllowWrites = NO;
+    self.mcpAllowInvoke = NO;
+    self.mcpInvokeAllowlistText = @"";
 }
 
 - (void)reportStatistics {

@@ -16,6 +16,7 @@
 #import "NSString+Score.h"
 #import "LookinDashboardBlueprint.h"
 #import "LKPreferenceManager.h"
+#import "Lookin-Swift.h"
 @import AppCenter;
 @import AppCenterAnalytics;
 @import AppCenterCrashes;
@@ -47,8 +48,9 @@
     }];
 }
 
-- (void)applicationDidFinishLaunching:(NSNotification *)aNotification {    
+- (void)applicationDidFinishLaunching:(NSNotification *)aNotification {
     [LKConnectionManager sharedInstance];
+    [[LKMCPServer shared] startIfEnabled];
     if (!self.launchedToOpenFile) {
         [[LKNavigationManager sharedInstance] showLaunch];
     }
@@ -73,7 +75,9 @@
 }
 
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)sender {
-    return YES;
+    // MCP server 开启时，关闭最后一个窗口不应退出 App，否则 Agent 会断连。
+    // 此时用户可通过菜单栏的 “Quit Lookin” 退出。
+    return ![LKPreferenceManager mainManager].mcpEnabled;
 }
 
 - (BOOL)application:(NSApplication *)sender openFile:(NSString *)filename {
@@ -84,6 +88,8 @@
 }
 
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender {
+    [[LKMCPServer shared] stopBeforeTermination];
+
     // 清理打开 UIImageView 的图片时创建的临时文件
     NSArray<NSString *> *tempImageFilesToDelete = [LKHelper sharedInstance].tempImageFiles;
     if (tempImageFilesToDelete.count == 0) {

@@ -22,6 +22,7 @@
 #import "LKVersionComparer.h"
 #import "LKReloadSingleItemUpdateTaskMaker.h"
 #import "LKReloadItemAndChildrenUpdateTaskMaker.h"
+#import "LKInspectionRequestGate.h"
 
 @interface LKDetailUpdateRequest : NSObject
 
@@ -343,6 +344,17 @@
     if (!app || newTasks.count == 0) {
         return;
     }
+
+    // MCP 正在使用 channel 时，UI 的 detail 请求先让路，避免同类型请求互相取消。
+    if ([LKInspectionRequestGate sharedGate].mcpBusy) {
+        @weakify(self);
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            @strongify(self);
+            [self sendTasks:newTasks completion:completionBlock];
+        });
+        return;
+    }
+
     // 相同请求不能并发，因此必须先把之前的请求先取消掉
     [self endUpdating];
     
