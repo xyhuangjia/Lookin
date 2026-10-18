@@ -2,13 +2,15 @@ use_frameworks!
 
 #inhibit_all_warnings!
 
-target 'LookinClient' do 
+target 'LookinClient' do
     platform :osx, '11.0'
     pod 'AppCenter'
     pod 'ReactiveObjC', '3.1.0'
     pod 'Sparkle', '~> 1.0'
-    pod 'LookinShared', :git=>'https://github.com/QMUI/LookinServer.git', :branch => 'develop'
-    #pod 'LookinShared', :path=>'../LookinServer/'
+    pod 'LookinShared', :git=>'https://github.com/mlch911/LookinServer.git'
+    pod 'LookinShared/Wireless', :git=>'https://github.com/mlch911/LookinServer.git'
+#    pod 'LookinShared', :path=>'../LookinServer/'
+#    pod 'LookinShared/Wireless', :path=>'../LookinServer/'
 end
 
 # ReactiveObjc 之类的 SDK 的 deployment target 太低了导致无法编译，所以这里改成以项目为准

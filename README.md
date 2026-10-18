@@ -32,6 +32,22 @@ See [`LookinCLI/README.md`](LookinCLI/README.md) for CLI usage and [`Docs/lookin
 `pod 'LookinServer', :subspecs => ['Swift'], :configurations => ['Debug']`
 ### Objective-C Project
 `pod 'LookinServer', :configurations => ['Debug']`
+### [Optianal] Wireless Connection
+`pod 'LookinServer/Wireless', :configurations => ['Debug']`
+
+And you need to add follow content to Info.plist. The name of `NSBonjourServices` **MUST** be `_Lookin._tcp`.
+
+```plist
+<key>NSLocalNetworkUsageDescription</key>
+<string>Local Network Usage Description</string>
+<key>NSBonjourServices</key>
+<array>
+	<string>_Lookin._tcp</string>
+</array>
+```
+Also, the wireless ability does not start automatically, you need to send a notification to turn it on. And you can also send a notification to turn it off. <br>
+Notification Names: `Lookin_startWirelessConnection` and `Lookin_endWirelessConnection`
+
 ## via Swift Package Manager:
 `https://github.com/QMUI/LookinServer/`
 
@@ -83,6 +99,21 @@ CLI 使用见 [`LookinCLI/README.md`](LookinCLI/README.md)，开发、构建、�
 `pod 'LookinServer', :subspecs => ['Swift'], :configurations => ['Debug']`
 ### Objective-C 项目
 `pod 'LookinServer', :configurations => ['Debug']`
+### [可选] 无线连接功能
+`pod 'LookinServer/Wireless', :configurations => ['Debug']`
+
+你需要将下面的内容添加进你的`Info.plist`。 `NSBonjourServices`的值**必须是**`_Lookin._tcp`。
+
+```plist
+<key>NSLocalNetworkUsageDescription</key>
+<string>Local Network Usage Description</string>
+<key>NSBonjourServices</key>
+<array>
+	<string>_Lookin._tcp</string>
+</array>
+```
+并且，无线功能不会自动启动，需要你发送通知来开启该功能，也支持发送通知来关闭它。<br>
+通知名称`Lookin_startWirelessConnection`和`Lookin_endWirelessConnection`
 
 ## 通过 Swift Package Manager:
 `https://github.com/QMUI/LookinServer/`
