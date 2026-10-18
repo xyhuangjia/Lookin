@@ -43,6 +43,11 @@
 			self.deviceViews = [devices.rac_sequence map:^id _Nullable(ECOChannelDeviceInfo *device) {
 				LKLaunchWirelessDeviceView *view = [LKLaunchWirelessDeviceView new];
 				view.device = device;
+				@weakify(self);
+				view.unpairHandler = ^(ECOChannelDeviceInfo *unpairedDevice) {
+					@strongify(self);
+					[self removeDeviceViewForDevice:unpairedDevice];
+				};
 				[view addTarget:self clickAction:@selector(handleClickAppView:)];
 				[self.view addSubview:view];
 				return view;
@@ -118,6 +123,25 @@
 	if (!device.authorizedType && self.didSelectDevice) {
 		self.didSelectDevice(device);
 	}
+}
+
+/// 取消配对后移除对应行并触发重排（剩余行重新垂直排布）
+- (void)removeDeviceViewForDevice:(ECOChannelDeviceInfo *)device {
+	__block LKLaunchWirelessDeviceView *target = nil;
+	[self.deviceViews enumerateObjectsUsingBlock:^(LKLaunchWirelessDeviceView * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+		if ([obj.device isEqual:device]) {
+			target = obj;
+			*stop = YES;
+		}
+	}];
+	if (!target) {
+		return;
+	}
+	NSMutableArray<LKLaunchWirelessDeviceView *> *remaining = [self.deviceViews mutableCopy];
+	[remaining removeObject:target];
+	self.deviceViews = remaining;
+	[target removeFromSuperview];
+	[self.view setNeedsLayout:YES];
 }
 
 - (void)_handleTutorial {
