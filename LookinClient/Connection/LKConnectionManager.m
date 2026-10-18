@@ -29,6 +29,9 @@ static NSIndexSet * PushFrameTypeList(void) {
 
 NSString *const LKUnpairedWirelessDeviceDidArriveNotification = @"LKUnpairedWirelessDeviceDidArriveNotification";
 
+/// 通道对象上绑定的来源类型（LKChannelTransport），用于 UI 区分 USB / Wi-Fi
+static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
+
 @implementation Lookin_PTChannel (LKConnection)
 
 - (void)setActiveRequests:(NSMutableSet<LKConnectionRequest *> *)activeRequests {
@@ -146,6 +149,20 @@ NSString *const LKUnpairedWirelessDeviceDidArriveNotification = @"LKUnpairedWire
 	return [self.connectWirelessDevices.copy arrayByAddingObjectsFromArray:self.notConnectWirelessDevices.copy];
 }
 
+- (LKChannelTransport)transportOfChannel:(id)channel {
+	if (!channel) {
+		return LKChannelTransportLocal;
+	}
+	if ([channel isKindOfClass:ECOChannelDeviceInfo.class]) {
+		return LKChannelTransportWireless;
+	}
+	NSNumber *bound = [(Lookin_PTChannel *)channel lookin_getBindObjectForKey:Key_BindingChannelTransport];
+	if (bound) {
+		return bound.integerValue;
+	}
+	return LKChannelTransportLocal;
+}
+
 - (RACSignal<ECOChannelDeviceInfo *> *)connectToWireless:(ECOChannelDeviceInfo *)device {
 	return [self _tryToConnectToWirelessDevice:device];
 }
@@ -223,6 +240,7 @@ NSString *const LKUnpairedWirelessDeviceDidArriveNotification = @"LKUnpairedWire
         }
 
         Lookin_PTChannel *localChannel = [Lookin_PTChannel channelWithDelegate:self];
+        [localChannel lookin_bindObject:@(LKChannelTransportLocal) forKey:Key_BindingChannelTransport];
         [localChannel connectToPort:port.portNumber IPv4Address:INADDR_LOOPBACK callback:^(NSError *error, Lookin_PTAddress *address) {
             if (error) {
                 if (error.domain == NSPOSIXErrorDomain && (error.code == ECONNREFUSED || error.code == ETIMEDOUT)) {
@@ -274,6 +292,7 @@ NSString *const LKUnpairedWirelessDeviceDidArriveNotification = @"LKUnpairedWire
         }
 
         Lookin_PTChannel *channel = [Lookin_PTChannel channelWithDelegate:self];
+        [channel lookin_bindObject:@(LKChannelTransportUSB) forKey:Key_BindingChannelTransport];
         [channel connectToPort:port.portNumber overUSBHub:Lookin_PTUSBHub.sharedHub deviceID:port.deviceID callback:^(NSError *error) {
             if (error) {
                 if (error.domain == Lookin_PTUSBHubErrorDomain && error.code == PTUSBHubErrorConnectionRefused) {
@@ -660,7 +679,11 @@ NSString *const LKUnpairedWirelessDeviceDidArriveNotification = @"LKUnpairedWire
 	// Ping测试
 	[self _requestWithType:LookinRequestTypePing channel:device data:nil timeoutInterval:2 succ:^(LookinConnectionResponseAttachment *pingResponse) {
 		@strongify(self);
-		[self.connectWirelessDevices addObject:device];
+		// deviceBlock / authStateChangedBlock / 用户点击可能在同一时刻并发发起握手，
+		// 两条握手都会走到这里，不判重会把同一设备加两遍，导致 app 列表出现重复的无线条目
+		if (![self.connectWirelessDevices containsObject:device]) {
+			[self.connectWirelessDevices addObject:device];
+		}
 		[self.notConnectWirelessDevices removeObject:device];
 		[subscriber sendNext:device];
 		[subscriber sendCompleted];

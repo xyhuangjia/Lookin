@@ -112,6 +112,16 @@ NSString *const LKInspectingAppDidEndNotificationName = @"LKInspectingAppDidEndN
         LKInspectableApp *targetApp = [allApps lookin_firstFiltered:^BOOL(LKInspectableApp *obj) {
             return [appInfo isEqualToAppInfo:obj.appInfo];
         }];
+        if (!targetApp) {
+            // 双通道（USB + Wi-Fi）下 deviceDescription 的 “ᯤ ” 前缀会随通道不同而不同；
+            // 若原通道已断（比对不上），则忽略前缀匹配另一条通道，保证跨通道也能自动重连
+            targetApp = [allApps lookin_firstFiltered:^BOOL(LKInspectableApp *obj) {
+                return [appInfo.appName isEqualToString:obj.appInfo.appName]
+                && [appInfo.osDescription isEqualToString:obj.appInfo.osDescription]
+                && appInfo.deviceType == obj.appInfo.deviceType
+                && [appInfo.lookin_displayName isEqualToString:obj.appInfo.lookin_displayName];
+            }];
+        }
         targetApp.appInfo.appIcon = appInfo.appIcon;
         return targetApp;
     }] catch:^RACSignal * _Nonnull(NSError * _Nonnull error) {

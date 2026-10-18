@@ -11,6 +11,7 @@
 #import "LookinAttributeModification.h"
 #import "LookinCustomAttrModification.h"
 #import "LookinAttributesGroup.h"
+#import "LKConnectionManager.h"
 
 @class Lookin_PTChannel, LookinDisplayItemTrace, LookinInvocationRequest, LookinHierarchyInfo, LookinStaticAsyncUpdateTasksPackage, LookinStaticAsyncUpdateTask;
 
@@ -21,6 +22,10 @@
 @property(nonatomic, strong) LookinAppInfo *appInfo;
 
 @property(nonatomic, weak) Lookin_PTChannel *channel;
+
+/// 该 app 实际经由的连接通道（USB / 无线 / 本机），由拉取到它的 channel 决定，
+/// 不依赖 server 下发的 isWireless 标记（旧版 server 在 USB、Wi-Fi 并存时会标错）
+@property(nonatomic, readonly) LKChannelTransport transport;
 
 - (RACSignal *)fetchHierarchyData;
 
@@ -48,5 +53,13 @@
 - (RACSignal *)modifyGestureRecognizer:(unsigned long)oid toBeEnabled:(BOOL)shouldBeEnabled;
 
 #pragma mark - Push From iOS
+
+@end
+
+@interface LookinAppInfo (LookinClient)
+
+/// 去掉 server 端打的 “ᯤ ” 无线前缀后的设备名。旧版 server 在 USB、Wi-Fi 并存时会把 USB 通道的
+/// appInfo 也打上该前缀，因此展示与匹配时统一使用该方法，连接类型以 LKInspectableApp.transport 为准
+- (NSString *)lookin_displayName;
 
 @end

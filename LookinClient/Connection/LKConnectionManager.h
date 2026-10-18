@@ -12,6 +12,15 @@
 
 @class LKConnectionRequest;
 
+/// app 实际经由的连接通道类型。设备同时以 USB 和 Wi-Fi 接入时，
+/// 同一个 app 会在列表中出现多条，需要靠该标识区分
+typedef NS_ENUM(NSInteger, LKChannelTransport) {
+	/// 模拟器、iOS-on-Mac 等本机回环连接
+	LKChannelTransportLocal = 0,
+	LKChannelTransportUSB,
+	LKChannelTransportWireless,
+};
+
 @protocol LookinChannelProtocol <NSObject>
 
 @property (readonly) BOOL isConnected;
@@ -51,6 +60,10 @@
 
 /// 取消与某设备的配对（双端清除配对记录，下次连接需重新配对）
 - (void)unpairDevice:(ECOChannelDeviceInfo *)device;
+
+/// 判断某个 channel（Lookin_PTChannel 或 ECOChannelDeviceInfo）的来源通道类型，
+/// 供 app 列表等 UI 标识 USB / Wi-Fi 用
+- (LKChannelTransport)transportOfChannel:(id)channel;
 
 /// 未配对的无线设备连入时发出（object 为 ECOChannelDeviceInfo），UI 据此自动弹出无线设备列表展示配对码
 extern NSString *const LKUnpairedWirelessDeviceDidArriveNotification;

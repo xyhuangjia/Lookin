@@ -13,6 +13,10 @@
 
 @implementation LKInspectableApp
 
+- (LKChannelTransport)transport {
+	return [[LKConnectionManager sharedInstance] transportOfChannel:self.channel];
+}
+
 - (RACSignal *)fetchHierarchyData {
     /// Lookin 1.0.4 开始加入这个参数
     NSDictionary *param = @{@"clientVersion": [LKHelper lookinReadableVersion]};
@@ -126,6 +130,18 @@
         return;
     }
     [[LKConnectionManager sharedInstance] cancelRequestWithType:requestType channel:self.channel];
+}
+
+@end
+
+@implementation LookinAppInfo (LookinClient)
+
+- (NSString *)lookin_displayName {
+	NSString *prefix = @"ᯤ ";
+	if ([self.deviceDescription hasPrefix:prefix]) {
+		return [self.deviceDescription substringFromIndex:prefix.length];
+	}
+	return self.deviceDescription;
 }
 
 @end

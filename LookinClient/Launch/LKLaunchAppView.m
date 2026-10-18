@@ -13,6 +13,9 @@
 
 @property(nonatomic, strong) CALayer *hoverBgLayer;
 @property(nonatomic, strong) NSImageView *previewImageView;
+/// 悬浮在小图左上角的连接通道徽标（USB / Wi-Fi），区分同设备的双通道条目
+@property(nonatomic, strong) LKTextControl *transportBadge;
+@property(nonatomic, assign) LKChannelTransport transport;
 @property(nonatomic, strong) NSImageView *iconImageView;
 @property(nonatomic, strong) LKLabel *titleLabel;
 @property(nonatomic, strong) LKLabel *subtitleLabel;
@@ -41,7 +44,16 @@
         
         self.previewImageView = [NSImageView new];
         [self addSubview:self.previewImageView];
-        
+
+        self.transportBadge = [LKTextControl new];
+        self.transportBadge.label.font = NSFontMake(10);
+        self.transportBadge.label.textColor = [NSColor whiteColor];
+        self.transportBadge.insets = NSEdgeInsetsMake(2, 6, 2, 6);
+        self.transportBadge.layer.cornerRadius = 3;
+        self.transportBadge.adjustAlphaWhenClick = NO;
+        self.transportBadge.hidden = YES;
+        [self addSubview:self.transportBadge];
+
         self.iconImageView = [NSImageView new];
         [self addSubview:self.iconImageView];
         
@@ -91,7 +103,9 @@
         
     } else {
         $(self.previewImageView).size(_previewSize).horAlign.y(_insets.top);
-        
+        // 徽标悬浮于小图左上角，hidden 时布局无副作用
+        $(self.transportBadge).sizeToFit.x(self.previewImageView.$x + 4).y(self.previewImageView.$y + 4);
+
         $(self.iconImageView).sizeToFit.y(_insets.top + _previewSize.height + _iconTop);
         
         $(self.titleLabel).sizeToFit;
@@ -167,8 +181,24 @@
         } else {
             self.iconImageView.image = NSImageMake(@"icon_iphone_big");
         }
-        self.titleLabel.stringValue = app.appInfo.deviceDescription;
+        self.titleLabel.stringValue = app.appInfo.lookin_displayName;
         self.subtitleLabel.stringValue = [NSString stringWithFormat:@"%@", app.appInfo.osDescription];
+
+        // 连接类型以本地 channel 为准（transport），不信任 server 下发的前缀（旧版 server 会标错）
+        self.transport = app.transport;
+        switch (self.transport) {
+            case LKChannelTransportUSB:
+                self.transportBadge.label.stringValue = @"USB";
+                self.transportBadge.hidden = NO;
+                break;
+            case LKChannelTransportWireless:
+                self.transportBadge.label.stringValue = @"Wi-Fi";
+                self.transportBadge.hidden = NO;
+                break;
+            default:
+                self.transportBadge.hidden = YES;
+                break;
+        }
     }
     
     [self updateLayer];
@@ -188,11 +218,17 @@
 - (void)updateLayer {
     [super updateLayer];
     self.hoverBgLayer.backgroundColor = self.effectiveAppearance.lk_isDarkMode ? LookinColorRGBAMake(0, 0, 0, .17).CGColor : LookinColorRGBAMake(0, 0, 0, .08).CGColor;
-    
+
     if (self.app.serverVersionError) {
         self.layer.backgroundColor = self.effectiveAppearance.lk_isDarkMode ? LookinColorRGBAMake(0, 0, 0, .13).CGColor : LookinColorRGBAMake(0, 0, 0, .05).CGColor;
     } else {
         self.layer.backgroundColor = [NSColor clearColor].CGColor;
+    }
+
+    if (!self.transportBadge.hidden) {
+        // 动态色的 CGColor 需随 appearance 重新解析
+        NSColor *badgeColor = (self.transport == LKChannelTransportWireless) ? [NSColor systemBlueColor] : [NSColor systemGreenColor];
+        self.transportBadge.layer.backgroundColor = badgeColor.CGColor;
     }
 }
 
