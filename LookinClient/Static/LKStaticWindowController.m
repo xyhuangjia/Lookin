@@ -209,7 +209,9 @@
         [self.viewController.progressView animateToProgress:InitialIndicatorProgressWhenFetchHierarchy];
 
         @weakify(self);
-        [[app fetchHierarchyData] subscribeNext:^(LookinHierarchyInfo *info) {
+        // 无线连接的响应在后台线程回调，这里会修改 isFetchingHierarchy（联动 toolbar item.enabled）、
+        // inspectingApp（联动 App item 宽度约束）等 UI 状态，必须切回主线程
+        [[[app fetchHierarchyData] deliverOnMainThread] subscribeNext:^(LookinHierarchyInfo *info) {
             @strongify(self);
             if (generation != self.hierarchyFetchGeneration) {
                 return;
@@ -319,7 +321,7 @@
     [self.viewController.progressView animateToProgress:InitialIndicatorProgressWhenFetchHierarchy];
 
     @weakify(self);
-    [[app fetchHierarchyData] subscribeNext:^(LookinHierarchyInfo *info) {
+    [[[app fetchHierarchyData] deliverOnMainThread] subscribeNext:^(LookinHierarchyInfo *info) {
         @strongify(self);
         if (generation != self.hierarchyFetchGeneration) {
             return;

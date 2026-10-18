@@ -250,7 +250,9 @@
     [LKPerformanceReporter.sharedInstance willStartReload];
     
     @weakify(self);
-    [[app fetchHierarchyData] subscribeNext:^(LookinHierarchyInfo *info) {
+    // 无线连接的响应在后台线程回调，这里会修改 inspectingApp（联动 toolbar App item 宽度约束）、
+    // 弹出 NSAlert 等 UI，必须切回主线程
+    [[[app fetchHierarchyData] deliverOnMainThread] subscribeNext:^(LookinHierarchyInfo *info) {
         @strongify(self);
         
         if (!info) {

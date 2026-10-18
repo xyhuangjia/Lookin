@@ -257,7 +257,8 @@
     @weakify(self);
     NSUInteger screenshotsTotalCount = tasks.count;
     __block NSUInteger receivedScreenshotsCount = 0;
-    [[app fetchModificationPatchWithTasks:tasks] subscribeNext:^(LookinDisplayItemDetail *detail) {
+    // 同 sendTasks: 的原因，无线连接时必须切回主线程再改 hierarchy 数据源和进度信号
+    [[[app fetchModificationPatchWithTasks:tasks] deliverOnMainThread] subscribeNext:^(LookinDisplayItemDetail *detail) {
         @strongify(self);
         [[LKStaticHierarchyDataSource sharedInstance] modifyWithDisplayItemDetail:detail];
         
@@ -383,7 +384,10 @@
     NSLog(@"AsyncUpdate - Will send %@ tasks.", @(newTasks.count));
 
     @weakify(self);
-    [[app fetchHierarchyDetailWithTaskPackages:packages] subscribeNext:^(NSArray<LookinDisplayItemDetail *> *details) {
+    // 无线连接的数据回调来自 GCDAsyncSocket 的后台队列，若不切回主线程，
+    // 会触发 delegate 在后台线程修改 NSToolbarItem.label / NSAlert 等 UI，
+    // 可能导致 “Size of item ... was invalidated during layout” 崩溃
+    [[[app fetchHierarchyDetailWithTaskPackages:packages] deliverOnMainThread] subscribeNext:^(NSArray<LookinDisplayItemDetail *> *details) {
         @strongify(self);
         if (generation != self.requestGeneration) {
             return;
