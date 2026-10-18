@@ -75,14 +75,21 @@
 	$(self.subtitleLabel).sizeToFit.y(self.titleLabel.$maxY + 2);
 	$(self.titleLabel, self.subtitleLabel).x(self.iconImageView.$maxX + _iconMarginRight).groupMidY(self.iconImageView.$midY);
 	
-		$(self.unpairControl).sizeToFit.maxX(self.$maxX - _insets.right - 10).midY(self.subtitleLabel.$midY);
-		$(self.stateLabel).sizeToFit.maxX(self.unpairControl.hidden ? self.unpairControl.$maxX : self.unpairControl.$x - 6).midY(self.subtitleLabel.$midY);
+	$(self.unpairControl).sizeToFit.maxX(self.$maxX - _insets.right - 10).midY(self.subtitleLabel.$midY);
+	$(self.stateLabel).sizeToFit.maxX(self.unpairControl.hidden ? self.unpairControl.$maxX : self.unpairControl.$x - 6).midY(self.subtitleLabel.$midY);
 	
 	$(self.iconImageView, self.titleLabel, self.subtitleLabel).groupHorAlign.offsetX(-2);
 }
 
 - (NSSize)sizeThatFits:(NSSize)limitedSize {
 	CGFloat width = self.iconImageView.image.size.width + _iconMarginRight + MAX([self.titleLabel sizeThatFits:NSSizeMax].width, [self.subtitleLabel sizeThatFits:NSSizeMax].width) + _insets.left + _insets.right;
+	//右侧状态区也占行宽：stateLabel 永远存在，已配对设备其后还有「取消配对」按钮（layout 里右对齐、
+	//且比 insets 额外缩进 10pt）。不计入的话行宽只按标题算，标题长时会压到按钮底下
+	CGFloat rightZoneWidth = [self.stateLabel sizeThatFits:NSSizeMax].width;
+	if (!self.unpairControl.hidden) {
+		rightZoneWidth += 6 + [self.unpairControl sizeThatFits:NSSizeMax].width;
+	}
+	width += rightZoneWidth + 16;
 	CGFloat height = _insets.top + self.iconImageView.image.size.height + _insets.bottom;
 	return NSMakeSize(width, height);
 }
