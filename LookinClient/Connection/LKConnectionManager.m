@@ -223,6 +223,9 @@ static NSString *const LKWhiteListDevicesKey = @"LKWhiteListDevicesKey";
         }];
         return nil;
     }];
+    // 个别端口的连接回调可能长时间不返回，超时兜底保证上层 zip 一定能完成，
+    // 避免 App 列表因单个端口挂起而整体无法刷新
+    return [signal timeout:5 onScheduler:[RACScheduler scheduler]];
 }
 
 /// 返回的 x 为所有已成功链接的 Lookin_PTChannel 数组，该方法不会 sendError:
@@ -272,6 +275,9 @@ static NSString *const LKWhiteListDevicesKey = @"LKWhiteListDevicesKey";
         }];
         return nil;
     }];
+    // 锁屏、未信任或状态异常的 USB 设备可能让 usbmux 的连接回调永不触发，
+    // 超时兜底避免它阻塞上层 zip，导致所有端口（含模拟器）的 App 列表都无法刷新
+    return [signal timeout:5 onScheduler:[RACScheduler scheduler]];
 }
 
 - (RACSignal *)_tryToConnectToAllWirelessDevice {

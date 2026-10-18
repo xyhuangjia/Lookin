@@ -80,6 +80,12 @@ OUTPUT_APP="${BUILD_DIR}/Lookin.app"
 rm -rf "${OUTPUT_APP}"
 ditto "${APP_IN_DERIVED}" "${OUTPUT_APP}"
 
+if [[ "${LOOKIN_CODESIGN_IDENTITY}" == "-" ]]; then
+  # ad-hoc 模式下 xcodebuild 给嵌入框架的签名与主程序的 ad-hoc 签名 Team ID 不一致，
+  # dyld 会拒绝加载框架导致 App 启动失败，因此对整个 bundle 统一重签
+  codesign --force --deep --sign - "${OUTPUT_APP}"
+fi
+
 codesign --verify --strict "${OUTPUT_APP}"
 
 APP_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "${OUTPUT_APP}/Contents/Info.plist")"
