@@ -273,6 +273,8 @@
         modification.clientReadableVersion = [LKHelper lookinReadableVersion];
         if ([LookinDashboardBlueprint isUIViewPropertyWithAttrID:attribute.identifier]) {
             modification.targetOid = modifyingItem.viewObject.oid;
+        } else if ([LookinDashboardBlueprint isWindowPropertyWithAttrID:attribute.identifier]) {
+            modification.targetOid = modifyingItem.windowObject.oid;
         } else {
             modification.targetOid = modifyingItem.layerObject.oid;
         }
@@ -406,7 +408,7 @@
         [self.searchContainerView addSubview:self.searchMethodsView];
     }
     
-    LookinObject *selectedObj = self.currentDataSource.selectedItem.viewObject ? : self.currentDataSource.selectedItem.layerObject;
+    LookinObject *selectedObj = self.currentDataSource.selectedItem.windowObject ? : self.currentDataSource.selectedItem.viewObject ? : self.currentDataSource.selectedItem.layerObject;
     NSString *selectedClassName = [selectedObj rawClassName];
     @weakify(self);
     [[self.methodsDataSource fetchNonArgMethodsListWithClass:selectedClassName] subscribeNext:^(NSArray<NSString *> *methodsList) {

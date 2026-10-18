@@ -135,12 +135,14 @@
 }
 
 - (void)setImageByDeviceType:(LookinAppInfoDevice)type {
-    if (type == 0) {
+    if (type == LookinAppInfoDeviceSimulator) {
         self.image = NSImageMake(@"icon_simulator_big");
-    } else if (type == 1) {
+    } else if (type == LookinAppInfoDeviceIPad) {
         self.image = NSImageMake(@"icon_ipad_big");
-    } else if (type == 2) {
+    } else if (type == LookinAppInfoDeviceOthers) {
         self.image = NSImageMake(@"icon_iphone_big");
+    } else if (type == LookinAppInfoDeviceMac) {
+        self.image = NSImageMake(@"icon_mac_big");
     } else {
         NSAssert(NO, @"");
     }

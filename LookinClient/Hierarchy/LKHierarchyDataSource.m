@@ -528,6 +528,9 @@
         if (obj.layerObject.oid) {
             map[@(obj.layerObject.oid)] = obj;
         }
+        if (obj.windowObject.oid) {
+            map[@(obj.windowObject.oid)] = obj;
+        }
     }];
     self.oidToDisplayItemMap = map;
 }

@@ -49,7 +49,7 @@
                                           if (!item) {
                                               return nil;
                                           }
-                                          NSArray<LookinObject *> *objs = $(item.hostViewControllerObject, item.layerObject, item.viewObject).array;
+                                          NSArray<LookinObject *> *objs = $(item.hostViewControllerObject, item.layerObject, item.viewObject, item.windowObject).array;
                                           return objs;
                                       }];
     }

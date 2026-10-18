@@ -98,6 +98,9 @@
             case LookinAppInfoDeviceOthers:
                 deviceIcon = NSImageMake(@"icon_iphone_small");
                 break;
+            case LookinAppInfoDeviceMac:
+                deviceIcon = NSImageMake(@"icon_mac_small");
+                break;
             default:
                 deviceIcon = NSImageMake(@"icon_simulator_small");
                 break;

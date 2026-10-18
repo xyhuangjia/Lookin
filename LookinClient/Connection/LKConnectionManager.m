@@ -16,7 +16,7 @@
 #import "LKServerVersionRequestor.h"
 #import "ECOChannelManager.h"
 
-static NSIndexSet * PushFrameTypeList() {
+static NSIndexSet * PushFrameTypeList(void) {
     static NSIndexSet *list;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{

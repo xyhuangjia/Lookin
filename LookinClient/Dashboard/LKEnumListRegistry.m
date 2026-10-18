@@ -166,7 +166,211 @@
             MakeItem(@"UIStackViewAlignmentTrailing (Bottom)", 4),
             MakeItem(@"UIStackViewAlignmentLastBaseline", 5)
         ];
+        mData[@"NSWritingDirection"] = @[
+            MakeItem(@"NSWritingDirectionNatural", -1),
+            MakeItem(@"NSWritingDirectionLeftToRight", 0),
+            MakeItem(@"NSWritingDirectionRightToLeft", 1)
+        ];
+        mData[@"NSTextAlignment_AppKit"] = @[
+            MakeItem(@"NSTextAlignmentLeft", 0),
+            MakeItem(@"NSTextAlignmentRight", 1),
+            MakeItem(@"NSTextAlignmentCenter", 2),
+            MakeItem(@"NSTextAlignmentJustified", 3),
+            MakeItem(@"NSTextAlignmentNatural", 4)
+        ];
+        mData[@"NSButtonType"] = @[
+            MakeItem(@"NSButtonTypeMomentaryLight", 0),
+            MakeItem(@"NSButtonTypePushOnPushOff", 1),
+            MakeItem(@"NSButtonTypeToggle", 2),
+            MakeItem(@"NSButtonTypeSwitch", 3),
+            MakeItem(@"NSButtonTypeRadio", 4),
+            MakeItem(@"NSButtonTypeMomentaryChange", 5),
+            MakeItem(@"NSButtonTypeOnOff", 6),
+            MakeItem(@"NSButtonTypeMomentaryPushIn", 7),
+            MakeItem(@"NSButtonTypeAccelerator", 8),
+            MakeItem(@"NSButtonTypeMultiLevelAccelerator", 9),
+        ];
+        mData[@"NSBezelStyle"] = @[
+            MakeItem(@"NSBezelStyleAutomatic", 0),
+            MakeItem(@"NSBezelStylePush", 1),
+            MakeItem(@"NSBezelStyleFlexiblePush", 2),
+            MakeItem(@"NSBezelStyleDisclosure", 5),
+            MakeItem(@"NSBezelStyleShadowlessSquare", 6),
+            MakeItem(@"NSBezelStyleCircular", 7),
+            MakeItem(@"NSBezelStyleTexturedSquare", 8),
+            MakeItem(@"NSBezelStyleHelpButton", 9),
+            MakeItem(@"NSBezelStyleSmallSquare", 10),
+            MakeItem(@"NSBezelStyleToolbar", 11),
+            MakeItem(@"NSBezelStyleAccessoryBarAction", 12),
+            MakeItem(@"NSBezelStyleAccessoryBar", 13),
+            MakeItem(@"NSBezelStylePushDisclosure", 14),
+            MakeItem(@"NSBezelStyleBadge", 15),
+        ];
+        mData[@"NSCellImagePosition"] = @[
+            MakeItem(@"NSNoImage", 0),
+            MakeItem(@"NSImageOnly", 1),
+            MakeItem(@"NSImageLeft", 2),
+            MakeItem(@"NSImageRight", 3),
+            MakeItem(@"NSImageBelow", 4),
+            MakeItem(@"NSImageAbove", 5),
+            MakeItem(@"NSImageOverlaps", 6),
+            MakeItem(@"NSImageLeading", 7),
+            MakeItem(@"NSImageTrailing", 8),
+        ];
+        mData[@"NSImageScaling"] = @[
+            MakeItem(@"NSImageScaleProportionallyDown", 0),
+            MakeItem(@"NSImageScaleAxesIndependently", 1),
+            MakeItem(@"NSImageScaleNone", 2),
+            MakeItem(@"NSImageScaleProportionallyUpOrDown", 3),
+        ];
+        mData[@"NSControlStateValue"] = @[
+            MakeItem(@"NSControlStateValueOff", 0),
+            MakeItem(@"NSControlStateValueOn", 1),
+            MakeItem(@"NSControlStateValueMixed", -1),
+        ];
         
+        mData[@"NSControlSize"] = @[
+            MakeItem(@"NSControlSizeRegular", 0),
+            MakeItem(@"NSControlSizeSmall", 1),
+            MakeItem(@"NSControlSizeMini", 2),
+            MakeItem(@"NSControlSizeLarge", 3),
+        ];
+        mData[@"NSEventModifierFlags"] = @[
+            MakeItem(@"NSEventModifierFlagCapsLock", 1 << 16),
+            MakeItem(@"NSEventModifierFlagShift", 1 << 17),
+            MakeItem(@"NSEventModifierFlagControl", 1 << 18),
+            MakeItem(@"NSEventModifierFlagOption", 1 << 19),
+            MakeItem(@"NSEventModifierFlagCommand", 1 << 20),
+            MakeItem(@"NSEventModifierFlagNumericPad", 1 << 21),
+            MakeItem(@"NSEventModifierFlagHelp", 1 << 22),
+            MakeItem(@"NSEventModifierFlagFunction", 1 << 23),
+        ];
+        mData[@"NSScrollElasticity"] = @[
+            MakeItem(@"NSScrollElasticityAutomatic", 0),
+            MakeItem(@"NSScrollElasticityNone", 1),
+            MakeItem(@"NSScrollElasticityAllowed", 2),
+        ];
+        mData[@"NSBorderType"] = @[
+            MakeItem(@"NSNoBorder", 0),
+            MakeItem(@"NSLineBorder", 1),
+            MakeItem(@"NSBezelBorder", 2),
+            MakeItem(@"NSGrooveBorder", 3),
+        ];
+        mData[@"NSScrollerStyle"] = @[
+            MakeItem(@"NSScrollerStyleLegacy", 0),
+            MakeItem(@"NSScrollerStyleOverlay", 1),
+        ];
+        mData[@"NSScrollerKnobStyle"] = @[
+            MakeItem(@"NSScrollerKnobStyleDefault", 0),
+            MakeItem(@"NSScrollerKnobStyleDark", 1),
+            MakeItem(@"NSScrollerKnobStyleLight", 2),
+        ];
+        mData[@"NSTableViewColumnAutoresizingStyle"] = @[
+            MakeItem(@"NSTableViewNoColumnAutoresizing", 0),
+            MakeItem(@"NSTableViewUniformColumnAutoresizingStyle", 1),
+            MakeItem(@"NSTableViewSequentialColumnAutoresizingStyle", 2),
+            MakeItem(@"NSTableViewReverseSequentialColumnAutoresizingStyle", 3),
+            MakeItem(@"NSTableViewLastColumnOnlyAutoresizingStyle", 4),
+            MakeItem(@"NSTableViewFirstColumnOnlyAutoresizingStyle", 5),
+        ];
+        mData[@"NSTableViewGridLineStyle"] = @[
+            MakeItem(@"NSTableViewGridNone", 0),
+            MakeItem(@"NSTableViewSolidVerticalGridLineMask", 1 << 0),
+            MakeItem(@"NSTableViewSolidHorizontalGridLineMask", 1 << 1),
+            MakeItem(@"NSTableViewDashedHorizontalGridLineMask", 1 << 3),
+        ];
+        mData[@"NSTableViewRowSizeStyle"] = @[
+            MakeItem(@"NSTableViewRowSizeStyleDefault", -1),
+            MakeItem(@"NSTableViewRowSizeStyleCustom", 0),
+            MakeItem(@"NSTableViewRowSizeStyleSmall", 1),
+            MakeItem(@"NSTableViewRowSizeStyleMedium", 2),
+            MakeItem(@"NSTableViewRowSizeStyleLarge", 3),
+        ];
+        mData[@"NSTableViewStyle"] = @[
+            MakeItem(@"NSTableViewStyleAutomatic", 0),
+            MakeItem(@"NSTableViewStyleFullWidth", 1),
+            MakeItem(@"NSTableViewStyleInset", 2),
+            MakeItem(@"NSTableViewStyleSourceList", 3),
+            MakeItem(@"NSTableViewStylePlain", 4),
+        ];
+        mData[@"NSTableViewSelectionHighlightStyle"] = @[
+            MakeItem(@"NSTableViewSelectionHighlightStyleNone", -1),
+            MakeItem(@"NSTableViewSelectionHighlightStyleRegular", 0),
+            MakeItem(@"NSTableViewSelectionHighlightStyleSourceList", 1),
+        ];
+        mData[@"NSTableViewDraggingDestinationFeedbackStyle"] = @[
+            MakeItem(@"NSTableViewDraggingDestinationFeedbackStyleNone", -1),
+            MakeItem(@"NSTableViewDraggingDestinationFeedbackStyleRegular", 0),
+            MakeItem(@"NSTableViewDraggingDestinationFeedbackStyleSourceList", 1),
+            MakeItem(@"NSTableViewDraggingDestinationFeedbackStyleGap", 2),
+        ];
+        mData[@"NSUserInterfaceLayoutDirection"] = @[
+            MakeItem(@"NSUserInterfaceLayoutDirectionLeftToRight", 0),
+            MakeItem(@"NSUserInterfaceLayoutDirectionRightToLeft", 1),
+        ];
+        mData[@"NSVisualEffectMaterial"] = @[
+            MakeItem(@"NSVisualEffectMaterialAppearanceBased", 0),
+            MakeItem(@"NSVisualEffectMaterialLight", 1),
+            MakeItem(@"NSVisualEffectMaterialDark", 2),
+            MakeItem(@"NSVisualEffectMaterialTitlebar", 3),
+            MakeItem(@"NSVisualEffectMaterialSelection", 4),
+            MakeItem(@"NSVisualEffectMaterialMenu", 5),
+            MakeItem(@"NSVisualEffectMaterialPopover", 6),
+            MakeItem(@"NSVisualEffectMaterialSidebar", 7),
+            MakeItem(@"NSVisualEffectMaterialMediumLight", 8),
+            MakeItem(@"NSVisualEffectMaterialUltraDark", 9),
+            MakeItem(@"NSVisualEffectMaterialHeaderView", 10),
+            MakeItem(@"NSVisualEffectMaterialSheet", 11),
+            MakeItem(@"NSVisualEffectMaterialWindowBackground", 12),
+            MakeItem(@"NSVisualEffectMaterialHUDWindow", 13),
+            MakeItem(@"NSVisualEffectMaterialFullScreenUI", 15),
+            MakeItem(@"NSVisualEffectMaterialToolTip", 17),
+            MakeItem(@"NSVisualEffectMaterialContentBackground", 18),
+            MakeItem(@"NSVisualEffectMaterialUnderWindowBackground", 21),
+            MakeItem(@"NSVisualEffectMaterialUnderPageBackground", 22),
+        ];
+        mData[@"NSVisualEffectBlendingMode"] = @[
+            MakeItem(@"NSVisualEffectBlendingModeBehindWindow", 0),
+            MakeItem(@"NSVisualEffectBlendingModeWithinWindow", 1),
+        ];
+        mData[@"NSVisualEffectState"] = @[
+            MakeItem(@"NSVisualEffectStateFollowsWindowActiveState", 0),
+            MakeItem(@"NSVisualEffectStateActive", 1),
+            MakeItem(@"NSVisualEffectStateInactive", 2),
+        ];
+        mData[@"NSBackgroundStyle"] = @[
+            MakeItem(@"NSBackgroundStyleNormal", 0),
+            MakeItem(@"NSBackgroundStyleEmphasized", 1),
+            MakeItem(@"NSBackgroundStyleRaised", 2),
+            MakeItem(@"NSBackgroundStyleLowered", 3),
+        ];
+        mData[@"NSStackViewDistribution"] = @[
+            MakeItem(@"NSStackViewDistributionGravityAreas", -1),
+            MakeItem(@"NSStackViewDistributionFill", 0),
+            MakeItem(@"NSStackViewDistributionFillEqually", 1),
+            MakeItem(@"NSStackViewDistributionFillProportionally", 2),
+            MakeItem(@"NSStackViewDistributionEqualSpacing", 3),
+            MakeItem(@"NSStackViewDistributionEqualCentering", 4),
+        ];
+        mData[@"NSUserInterfaceLayoutOrientation"] = @[
+            MakeItem(@"NSUserInterfaceLayoutOrientationHorizontal", 0),
+            MakeItem(@"NSUserInterfaceLayoutOrientationVertical", 1),
+        ];
+        mData[@"NSLayoutAttribute"] = @[
+            MakeItem(@"NSLayoutAttributeNotAnAttribute", 0),
+            MakeItem(@"NSLayoutAttributeLeft", 1),
+            MakeItem(@"NSLayoutAttributeRight", 2),
+            MakeItem(@"NSLayoutAttributeTop", 3),
+            MakeItem(@"NSLayoutAttributeBottom", 4),
+            MakeItem(@"NSLayoutAttributeLeading", 5),
+            MakeItem(@"NSLayoutAttributeTrailing", 6),
+            MakeItem(@"NSLayoutAttributeWidth", 7),
+            MakeItem(@"NSLayoutAttributeHeight", 8),
+            MakeItem(@"NSLayoutAttributeCenterX", 9),
+            MakeItem(@"NSLayoutAttributeCenterY", 10),
+            MakeItem(@"NSLayoutAttributeLastBaseline", 11),
+            MakeItem(@"NSLayoutAttributeFirstBaseline", 12),
+        ];
         self.data = mData;
     }
     return self;

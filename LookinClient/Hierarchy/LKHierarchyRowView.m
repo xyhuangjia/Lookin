@@ -326,7 +326,23 @@
                       @{@"UIButton": @"hierarchy_button"},
                       @{@"UIImageView": @"hierarchy_imageview"},
                       @{@"UIControl": @"hierarchy_control"},
-                      @{@"UIVisualEffectView": @"hierarchy_effectview"}
+                      @{@"UIVisualEffectView": @"hierarchy_effectview"},
+                      
+                      @{@"NSWindow": @"hierarchy_window"},
+                      @{@"NSTabView": @"hierarchy_tabbar"},
+                      @{@"NSTextView": @"hierarchy_textview"},
+                      @{@"NSStackView": @"hierarchy_stackview"},
+                      @{@"NSTextField": @"hierarchy_textfield"},
+                      @{@"NSTableView": @"hierarchy_tableview"},
+                      @{@"NSCollectionView": @"hierarchy_collectionview"},
+                      @{@"NSCollectionViewItem": @"hierarchy_collectioncell"},
+                      @{@"NSTableCellView": @"hierarchy_tablecell"},
+                      @{@"NSSlider": @"hierarchy_slider"},
+                      @{@"NSScrollView": @"hierarchy_scrollview"},
+                      @{@"NSButton": @"hierarchy_button"},
+                      @{@"NSImageView": @"hierarchy_imageview"},
+                      @{@"NSControl": @"hierarchy_control"},
+                      @{@"NSVisualEffectView": @"hierarchy_effectview"}
                       ];
     });
     
@@ -372,6 +388,8 @@
         if (!imageName) {
             imageName = @"hierarchy_layer";
         }
+    } else if (item.windowObject) {
+        imageName = @"hierarchy_window";
     }
     
     if (!imageName) {
