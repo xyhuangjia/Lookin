@@ -218,3 +218,9 @@
 "It may be due to changes in the layer structure within the iOS app. You can try reloading the entire structure in Lookin." = "可能因为 iOS App 中的图层结构有变化，可尝试在 Lookin 中整体重新刷新。";
 "properties or methods" = "搜索属性或方法";
 "Wireless Connection rejected" = "无线连接被拒绝";
+
+"Wireless Devices" = "无线设备";
+"Connected" = "已连接";
+"Click to pair" = "点击配对";
+"Pairing code %@" = "配对码 %@";
+"Unpair" = "取消配对";

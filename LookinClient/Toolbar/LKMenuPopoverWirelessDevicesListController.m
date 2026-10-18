@@ -36,7 +36,7 @@
 		_subtitleMarginBottom = 5;
 		_appViewInterSpace = 1;
 		
-		NSString *title = nil;
+		NSString *title = NSLocalizedString(@"Wireless Devices", nil);
 		NSString *subtitle = nil;
 		
 		if (devices.count) {

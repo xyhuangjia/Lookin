@@ -63,6 +63,8 @@
     
     if (self = [self initWithWindow:window]) {
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_handleInspectingAppDidEnd:) name:LKInspectingAppDidEndNotificationName object:nil];
+        //未配对设备连入时自动弹出无线设备列表，展示配对码（蓝牙式配对）
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_handleUnpairedDeviceArrived:) name:LKUnpairedWirelessDeviceDidArriveNotification object:nil];
         
         _viewController = [[LKStaticViewController alloc] init];
         window.contentView = self.viewController.view;
@@ -131,6 +133,12 @@
     } error:^(NSError * _Nullable error) {
         NSAssert(NO, @"该方法不应该 sendError");
     }];
+}
+
+- (void)_handleUnpairedDeviceArrived:(NSNotification *)note {
+    if (self.isWindowLoaded && self.window.isKeyWindow) {
+        [self popupNotConnnectWirelessInspectableApps];
+    }
 }
 
 - (void)popupNotConnnectWirelessInspectableApps {

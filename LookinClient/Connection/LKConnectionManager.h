@@ -46,9 +46,14 @@
 
 - (NSArray<ECOChannelDeviceInfo *> *)getAllWirelessDevices;
 
-- (BOOL)isWhiteListDevice:(ECOChannelDeviceInfo *)device;
+/// 该设备当前进行中的配对码（6 位数字），未在配对中返回 nil，供设备行展示「配对码 xxx xxx」
+- (NSString *)pairingCodeForDevice:(ECOChannelDeviceInfo *)device;
 
-- (void)setWhiteListDevice:(ECOChannelDeviceInfo *)device white:(BOOL)white;
+/// 取消与某设备的配对（双端清除配对记录，下次连接需重新配对）
+- (void)unpairDevice:(ECOChannelDeviceInfo *)device;
+
+/// 未配对的无线设备连入时发出（object 为 ECOChannelDeviceInfo），UI 据此自动弹出无线设备列表展示配对码
+extern NSString *const LKUnpairedWirelessDeviceDidArriveNotification;
 
 /// 取消先前使用 requestWithType:data:channel: 方法发送的尚未完成的 request，这个 request 会被报告为 completion
 - (void)cancelRequestWithType:(unsigned int)requestType channel:(Lookin_PTChannel *)channel;

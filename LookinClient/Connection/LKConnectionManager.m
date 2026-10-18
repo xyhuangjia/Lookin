@@ -26,7 +26,7 @@ static NSIndexSet * PushFrameTypeList(void) {
     return list;
 }
 
-static NSString *const LKWhiteListDevicesKey = @"LKWhiteListDevicesKey";
+NSString *const LKUnpairedWirelessDeviceDidArriveNotification = @"LKUnpairedWirelessDeviceDidArriveNotification";
 
 @implementation Lookin_PTChannel (LKConnection)
 
@@ -94,8 +94,8 @@ static NSString *const LKWhiteListDevicesKey = @"LKWhiteListDevicesKey";
 @property(nonatomic, strong) NSMutableArray<ECOChannelDeviceInfo *> *notConnectWirelessDevices;
 @property(nonatomic, strong) ECOChannelManager *wirelessChannel;
 @property(nonatomic, strong) NSMutableDictionary *authStateChangedBlocks;
-
-@property(nonatomic, strong) NSMutableArray<ECOChannelDeviceInfo *> *whitelistDevices;
+/// 进行中的配对：device.hash → 6 位配对码
+@property(nonatomic, strong) NSMutableDictionary<NSNumber *, NSString *> *pairingCodes;
 
 @end
 
@@ -149,21 +149,37 @@ static NSString *const LKWhiteListDevicesKey = @"LKWhiteListDevicesKey";
 	return [self _tryToConnectToWirelessDevice:device];
 }
 
-- (BOOL)isWhiteListDevice:(ECOChannelDeviceInfo *)device {
-	return [self.whitelistDevices containsObject:device];
+- (NSString *)pairingCodeForDevice:(ECOChannelDeviceInfo *)device {
+	return self.pairingCodes[@(device.hash)];
 }
 
-- (void)setWhiteListDevice:(ECOChannelDeviceInfo *)device white:(BOOL)white {
-	if (white) {
-		if (![self isWhiteListDevice:device]) {
-			[self.whitelistDevices addObject:device];
-			[self saveWhiteListDevices];
-		}
-	} else {
-		if ([self isWhiteListDevice:device]) {
-			[self.whitelistDevices removeObject:device];
-			[self saveWhiteListDevices];
-		}
+- (void)unpairDevice:(ECOChannelDeviceInfo *)device {
+	[self.wirelessChannel removePairedDevice:device];
+	// Deny 帧会同步清除手机侧的配对记录
+	[self.wirelessChannel sendAuthorizationMessageToDevice:device state:ECOAuthorizeResponseType_Deny showAuthAlert:NO pairCode:nil];
+	[self.connectWirelessDevices removeObject:device];
+	[self.notConnectWirelessDevices removeObject:device];
+	[self.pairingCodes removeObjectForKey:@(device.hash)];
+	[self.channelWillEnd sendNext:device];
+}
+
+/// 对未配对设备发起蓝牙式配对：生成/复用 6 位码，携带在授权请求里发给手机；新配对时通知 UI 弹出设备列表
+- (void)_beginPairingWithDevice:(ECOChannelDeviceInfo *)device {
+	NSString *code = self.pairingCodes[@(device.hash)];
+	BOOL isNewPairing = !code.length;
+	if (isNewPairing) {
+		code = [NSString stringWithFormat:@"%06ld", (long)(arc4random_uniform(1000000))];
+		self.pairingCodes[@(device.hash)] = code;
+	}
+	[self.wirelessChannel sendAuthorizationMessageToDevice:device
+	                                                 state:ECOAuthorizeResponseType_AllowAlways
+	                                          showAuthAlert:YES
+	                                              pairCode:code];
+	if (isNewPairing) {
+		//用户在弹层里点击设备行触发的重发沿用同一个码，不再重复弹窗
+		dispatch_async(dispatch_get_main_queue(), ^{
+			[[NSNotificationCenter defaultCenter] postNotificationName:LKUnpairedWirelessDeviceDidArriveNotification object:device];
+		});
 	}
 }
 
@@ -197,14 +213,14 @@ static NSString *const LKWhiteListDevicesKey = @"LKWhiteListDevicesKey";
 /// 返回的 x 为成功链接的 Lookin_PTChannel
 /// 注意，如果某个 app 被退到了后台但是没有被 kill，则在这个方法里它的 channel 仍然会被成功连接
 - (RACSignal *)_connectToSimulatorPort:(LKSimulatorConnectionPort *)port {
-    return [RACSignal createSignal:^RACDisposable * _Nullable(id<RACSubscriber>  _Nonnull subscriber) {
+    RACSignal *signal = [RACSignal createSignal:^RACDisposable * _Nullable(id<RACSubscriber>  _Nonnull subscriber) {
         if (port.connectedChannel) {
             // 该 port 本来就已经成功连接
             [subscriber sendNext:port.connectedChannel];
             [subscriber sendCompleted];
             return nil;
         }
-        
+
         Lookin_PTChannel *localChannel = [Lookin_PTChannel channelWithDelegate:self];
         [localChannel connectToPort:port.portNumber IPv4Address:INADDR_LOOPBACK callback:^(NSError *error, Lookin_PTAddress *address) {
             if (error) {
@@ -248,14 +264,14 @@ static NSString *const LKWhiteListDevicesKey = @"LKWhiteListDevicesKey";
 
 /// 返回的 x 为成功链接的 Lookin_PTChannel
 - (RACSignal *)_connectToUSBPort:(LKUSBConnectionPort *)port {
-    return [RACSignal createSignal:^RACDisposable * _Nullable(id<RACSubscriber>  _Nonnull subscriber) {
+    RACSignal *signal = [RACSignal createSignal:^RACDisposable * _Nullable(id<RACSubscriber>  _Nonnull subscriber) {
         if (port.connectedChannel) {
             // 该 port 本来就已经成功连接
             [subscriber sendNext:port.connectedChannel];
             [subscriber sendCompleted];
             return nil;
         }
-        
+
         Lookin_PTChannel *channel = [Lookin_PTChannel channelWithDelegate:self];
         [channel connectToPort:port.portNumber overUSBHub:Lookin_PTUSBHub.sharedHub deviceID:port.deviceID callback:^(NSError *error) {
             if (error) {
@@ -528,10 +544,12 @@ static NSString *const LKWhiteListDevicesKey = @"LKWhiteListDevicesKey";
 	self.wirelessChannel.deviceBlock = ^(ECOChannelDeviceInfo *device, BOOL isConnected) {
 		NSLog(@"🚀 Lookin deviceBlock device:%@", device);
 		if (isConnected && ![self_weak_.connectWirelessDevices containsObject:device]) {
-			if (!device.authorizedType && ![self_weak_ isWhiteListDevice:device]) {
+			if (!device.authorizedType) {
+				// 未配对设备连入：加入待配对列表并发起蓝牙式配对（UI 会自动弹出设备列表展示配对码）
 				if (![self_weak_.notConnectWirelessDevices containsObject:device]) {
 					[self_weak_.notConnectWirelessDevices addObject:device];
 				}
+				[self_weak_ _beginPairingWithDevice:device];
 			} else {
 				RACSignal *signal = [self_weak_ _connectToWirelessDevice:device];
 				[signal subscribeNext:^(ECOChannelDeviceInfo * _Nullable x) {
@@ -550,14 +568,19 @@ static NSString *const LKWhiteListDevicesKey = @"LKWhiteListDevicesKey";
 		void(^block)(ECOChannelDeviceInfo *device, ECOAuthorizeResponseType authState) = self_weak_.authStateChangedBlocks[@(device.hash)];
 		if (block) {
 			block(device, authState);
-		} else if (authState && [self_weak_ isWhiteListDevice:device] && ![self_weak_.connectWirelessDevices containsObject:device]) {
-			[[self_weak_ _tryToConnectToWirelessDevice:device] subscribeNext:^(ECOChannelDeviceInfo * _Nullable x) {
-				NSLog(@"🚀 Lookin auto connect white list device success. device:%@", x);
-            }];
+		} else if (authState && ![self_weak_.connectWirelessDevices containsObject:device]) {
+			// 手机上确认配对后：直接自动连接（配对的意义就是免二次交互）
+			[self_weak_.pairingCodes removeObjectForKey:@(device.hash)];
+			[[self_weak_ _connectToWirelessDevice:device] subscribeNext:^(ECOChannelDeviceInfo * _Nullable x) {
+				NSLog(@"🚀 Lookin auto connect paired device success. device:%@", x);
+			}];
 		}
-		if (!authState && [self_weak_.connectWirelessDevices containsObject:device]) {
-			[self_weak_.connectWirelessDevices removeObject:device];
-			[self_weak_.channelWillEnd sendNext:device];
+		if (!authState) {
+			[self_weak_.pairingCodes removeObjectForKey:@(device.hash)];
+			if ([self_weak_.connectWirelessDevices containsObject:device]) {
+				[self_weak_.connectWirelessDevices removeObject:device];
+				[self_weak_.channelWillEnd sendNext:device];
+			}
 		}
 	};
 	// 请求授权状态认证回调
@@ -592,10 +615,7 @@ static NSString *const LKWhiteListDevicesKey = @"LKWhiteListDevicesKey";
 		}] flattenMap:^__kindof RACSignal * _Nullable(ECOChannelDeviceInfo *device) {
 			return [self_weak_ _connectToWirelessDevice:device];
 		}];
-		NSString *uniId = [NSString stringWithFormat:@"%@_%@",device.uuid, device.appInfo.appId];
-		[self.wirelessChannel sendAuthorizationMessageToDevice:device
-														 state:ECOAuthorizeResponseType_AllowAlways
-												 showAuthAlert:![self.wirelessChannel.whitelistDevices containsObject:uniId]];
+		[self_weak_ _beginPairingWithDevice:device];
 		return signal;
 	} else {
 		return [self _connectToWirelessDevice:device];
@@ -763,29 +783,11 @@ static NSString *const LKWhiteListDevicesKey = @"LKWhiteListDevicesKey";
     [channel close];
 }
 
-- (void)saveWhiteListDevices {
-	NSArray *list = [self.whitelistDevices copy];
-	list = [list.rac_sequence map:^id _Nullable(ECOChannelDeviceInfo *device) {
-		return device.toJSONObject;
-	}].array;
-	[[NSUserDefaults standardUserDefaults] setObject:list forKey:LKWhiteListDevicesKey];
-	[[NSUserDefaults standardUserDefaults] synchronize];
-}
-
-- (NSMutableArray<ECOChannelDeviceInfo *> *)whitelistDevices {
-	if (!_whitelistDevices) {
-		NSArray *list = [[NSUserDefaults standardUserDefaults] objectForKey:LKWhiteListDevicesKey];
-		list = [list.rac_sequence map:^id _Nullable(NSDictionary *dic) {
-			NSError *error = nil;
-			NSData *data = [NSJSONSerialization dataWithJSONObject:dic options:0 error:&error];
-			if (error) {
-				return nil;
-			}
-			return [[ECOChannelDeviceInfo alloc] initWithData:data];
-		}].array;
-		_whitelistDevices = [NSMutableArray arrayWithArray:list ?: @[]];
+- (NSMutableDictionary<NSNumber *,NSString *> *)pairingCodes {
+	if (!_pairingCodes) {
+		_pairingCodes = [NSMutableDictionary dictionary];
 	}
-	return _whitelistDevices;
+	return _pairingCodes;
 }
 
 @end

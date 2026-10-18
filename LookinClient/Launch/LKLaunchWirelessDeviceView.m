@@ -16,7 +16,7 @@
 @property(nonatomic, strong) LKLabel *titleLabel;
 @property(nonatomic, strong) LKLabel *subtitleLabel;
 @property(nonatomic, strong) LKLabel *stateLabel;
-@property(nonatomic, strong) LKTextControl *autoConnectControl;
+@property(nonatomic, strong) LKTextControl *unpairControl;
 
 @end
 
@@ -49,17 +49,17 @@
 		self.stateLabel.textColor = [NSColor labelColor];
 		[self addSubview:self.stateLabel];
 		
-		self.autoConnectControl = LKTextControl.new;
-		self.autoConnectControl.label.textColor = [NSColor labelColor];
-		self.autoConnectControl.spaceBetweenLabelAndImage = 4;
-		[self addSubview:self.autoConnectControl];
-		
+		self.unpairControl = LKTextControl.new;
+		self.unpairControl.label.textColor = [NSColor labelColor];
+		self.unpairControl.spaceBetweenLabelAndImage = 4;
+		[self addSubview:self.unpairControl];
+
 		_insets = NSEdgeInsetsMake(12, 13, 8, 13);
 		_iconMarginRight = 6;
 		self.titleLabel.font = NSFontMake(12);
 		self.subtitleLabel.font = NSFontMake(11);
-		
-		[self.autoConnectControl addTarget:self clickAction:@selector(handleAutoConnectControl)];
+
+		[self.unpairControl addTarget:self clickAction:@selector(handleUnpairControl)];
 	}
 	return self;
 }
@@ -75,8 +75,8 @@
 	$(self.subtitleLabel).sizeToFit.y(self.titleLabel.$maxY + 2);
 	$(self.titleLabel, self.subtitleLabel).x(self.iconImageView.$maxX + _iconMarginRight).groupMidY(self.iconImageView.$midY);
 	
-	$(self.autoConnectControl).sizeToFit.maxX(self.$maxX - _insets.right - 10).midY(self.subtitleLabel.$midY);
-	$(self.stateLabel).sizeToFit.maxX(self.autoConnectControl.hidden ? self.autoConnectControl.$maxX : self.autoConnectControl.$x - 6).midY(self.subtitleLabel.$midY);
+		$(self.unpairControl).sizeToFit.maxX(self.$maxX - _insets.right - 10).midY(self.subtitleLabel.$midY);
+		$(self.stateLabel).sizeToFit.maxX(self.unpairControl.hidden ? self.unpairControl.$maxX : self.unpairControl.$x - 6).midY(self.subtitleLabel.$midY);
 	
 	$(self.iconImageView, self.titleLabel, self.subtitleLabel).groupHorAlign.offsetX(-2);
 }
@@ -112,19 +112,27 @@
 	}
 	self.titleLabel.stringValue = [NSString stringWithFormat:@"%@ - %@(%@.%@)", device.deviceName, device.appInfo.appName, device.appInfo.appVersion, device.appInfo.appShortVersion];
 	self.subtitleLabel.stringValue = [NSString stringWithFormat:@"iOS %@", device.systemVersion];
-	self.stateLabel.stringValue = device.authorizedType ? @"已连接" : @"点击连接";
-	
-	self.autoConnectControl.hidden = device.authorizedType != ECOAuthorizeResponseType_AllowAlways;
-	self.autoConnectControl.label.stringValue = @"自动连接";
-	BOOL isWhiteDevice = [LKConnectionManager.sharedInstance isWhiteListDevice:device];
-	self.autoConnectControl.rightImage = [NSImage imageWithSystemSymbolName:isWhiteDevice ? @"checkmark.square" : @"square" accessibilityDescription:nil];
+	if (device.authorizedType) {
+		self.stateLabel.stringValue = NSLocalizedString(@"Connected", nil);
+	} else {
+		NSString *pairCode = [LKConnectionManager.sharedInstance pairingCodeForDevice:device];
+		if (pairCode.length >= 6) {
+			//与手机端一致，6 位码分成 3+3 展示，方便肉眼核对
+			NSString *displayCode = [NSString stringWithFormat:@"%@ %@", [pairCode substringToIndex:3], [pairCode substringFromIndex:3]];
+			self.stateLabel.stringValue = [NSString stringWithFormat:NSLocalizedString(@"Pairing code %@", nil), displayCode];
+		} else {
+			self.stateLabel.stringValue = NSLocalizedString(@"Click to pair", nil);
+		}
+	}
+
+	//已配对（连接中）的设备才显示「取消配对」
+	self.unpairControl.hidden = !device.authorizedType;
+	self.unpairControl.label.stringValue = NSLocalizedString(@"Unpair", nil);
+	self.unpairControl.rightImage = nil;
 }
 
-- (void)handleAutoConnectControl {
-	BOOL isWhiteDevice = [LKConnectionManager.sharedInstance isWhiteListDevice:self.device];
-	isWhiteDevice = !isWhiteDevice;
-	self.autoConnectControl.rightImage = [NSImage imageWithSystemSymbolName:isWhiteDevice ? @"checkmark.square" : @"square" accessibilityDescription:nil];
-	[LKConnectionManager.sharedInstance setWhiteListDevice:self.device white:isWhiteDevice];
+- (void)handleUnpairControl {
+	[LKConnectionManager.sharedInstance unpairDevice:self.device];
 }
 
 - (void)mouseEntered:(NSEvent *)event {

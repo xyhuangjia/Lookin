@@ -82,6 +82,9 @@
     self.wirelessControl.adjustAlphaWhenClick = YES;
     [self.wirelessControl addTarget:self clickAction:@selector(_handleWireless)];
     [containerView addSubview:self.wirelessControl];
+
+    //未配对设备连入时自动弹出无线设备列表，展示配对码（蓝牙式配对）
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_handleUnpairedDeviceArrived:) name:LKUnpairedWirelessDeviceDidArriveNotification object:nil];
     
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         // 延时一下，因为如果有 USB 设备被连接，则需要一定时间来使 ConnectionManager 检测到，这个时间实际实验大概 0.1 秒，这里稍微宽裕一点给个 0.2 秒
@@ -264,6 +267,12 @@
     
     [self.reloadingIndicator removeFromSuperview];
     self.reloadingIndicator = nil;
+}
+
+- (void)_handleUnpairedDeviceArrived:(NSNotification *)note {
+    if (self.view.window.isKeyWindow) {
+        [self _handleWireless];
+    }
 }
 
 - (void)_handleWireless {
