@@ -4,7 +4,7 @@ use_frameworks!
 
 target 'LookinClient' do
     platform :osx, '14.0'
-    pod 'AppCenter'
+    pod 'AppCenter', '~> 5.12.1'
     pod 'ReactiveObjC', '~> 3.1.1'
     pod 'Sparkle', '~> 2.9.6'
     pod 'LookinShared', :path=>'../LookinServer/'

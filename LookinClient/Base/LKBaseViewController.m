@@ -59,14 +59,16 @@
                 [self.connectionTipsView endAnimation];
                 self.connectionTipsView.hidden = YES;
                 [self.connectionTipsView setImageByDeviceType:app.appInfo.deviceType];
-                
+                // tips 的显隐会影响同页其它 tips 的纵向堆叠，必须重新布局
+                [self.view setNeedsLayout:YES];
+
             } else {
                 if (!self.connectionTipsView.superview) {
                     [view addSubview:self.connectionTipsView];
                 }
                 self.connectionTipsView.hidden = NO;
                 [self.connectionTipsView startAnimation];
-                
+
                 [self.view setNeedsLayout:YES];
             }
         }];

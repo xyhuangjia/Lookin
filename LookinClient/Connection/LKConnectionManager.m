@@ -626,27 +626,61 @@ NSString *const LKUnpairedWirelessDeviceDidArriveNotification = @"LKUnpairedWire
 - (RACSignal<ECOChannelDeviceInfo *> *)_connectToWirelessDevice:(ECOChannelDeviceInfo *)device {
 	if (!device.isConnected)
 		return [RACSignal error:LookinErr_Inner];
-	
+
 	if (![self.connectWirelessDevices containsObject:device]) {
 		// 已信任
 		@weakify(self);
 		return [RACSignal createSignal:^RACDisposable * _Nullable(id<RACSubscriber>  _Nonnull subscriber) {
-			// Ping测试
-			[self _requestWithType:LookinRequestTypePing channel:device data:nil timeoutInterval:2 succ:^(LookinConnectionResponseAttachment *pingResponse) {
-				// ping 成功了
-				// NSLog(@"LookinClient, level1 - ping succ, will send request:%@, port:%@", @(type), @(channel.portNumber));
-				
-				[self_weak_.connectWirelessDevices addObject:device];
-                [self_weak_.notConnectWirelessDevices removeObject:device];
-				[subscriber sendNext:device];
-				[subscriber sendCompleted];
-			} fail:^(NSError *error) {
-				[subscriber sendError:error];
-			} completion:nil];
+			[self_weak_ _pingWirelessDevice:device attempts:0 subscriber:subscriber];
 			return nil;
 		}];
 	}
 	return [RACSignal error:LookinErr_Inner];
+}
+
+/// 无线连接刚建立时 App 可能仍在「解锁 → 前台」的过渡中，此时 Ping 会被 server 判定为后台状态。
+/// 若把这一次失败当成最终结果，设备再也不会被加入 connectWirelessDevices，Lookin 也无法自动恢复。
+/// 因此对后台 / 超时 / 未连接这类瞬时失败做重试，直到 App 真正活跃或 socket 断开。
+- (void)_pingWirelessDevice:(ECOChannelDeviceInfo *)device
+                   attempts:(NSUInteger)attempts
+                 subscriber:(id<RACSubscriber>)subscriber {
+	if (!device.isConnected || device.authorizedType == ECOAuthorizeResponseType_Deny) {
+		// socket 已断开，或用户刚刚取消配对：不再重试
+		[subscriber sendError:LookinErr_NoConnect];
+		return;
+	}
+	if ([self.connectWirelessDevices containsObject:device]) {
+		// 并发的另一次握手已经成功
+		[subscriber sendNext:device];
+		[subscriber sendCompleted];
+		return;
+	}
+
+	@weakify(self);
+	// Ping测试
+	[self _requestWithType:LookinRequestTypePing channel:device data:nil timeoutInterval:2 succ:^(LookinConnectionResponseAttachment *pingResponse) {
+		@strongify(self);
+		[self.connectWirelessDevices addObject:device];
+		[self.notConnectWirelessDevices removeObject:device];
+		[subscriber sendNext:device];
+		[subscriber sendCompleted];
+	} fail:^(NSError *error) {
+		@strongify(self);
+		BOOL isTransient = (error.code == LookinErrCode_PingFailForBackgroundState ||
+							error.code == LookinErrCode_Timeout ||
+							error.code == LookinErrCode_NoConnect);
+		if (!isTransient || !device.isConnected || device.authorizedType == ECOAuthorizeResponseType_Deny) {
+			[subscriber sendError:error];
+			return;
+		}
+		// 前几次快速重试，之后降低频率，避免熄屏期间过于频繁地唤醒
+		NSTimeInterval delay = attempts < 5 ? 1.0 : 3.0;
+		NSLog(@"Lookin - wireless device is not ready (%@), retry in %.0fs", error.localizedDescription, delay);
+		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+			@strongify(self);
+			[self _pingWirelessDevice:device attempts:attempts + 1 subscriber:subscriber];
+		});
+	} completion:nil];
 }
 
 #pragma mark - <Lookin_PTChannelDelegate>

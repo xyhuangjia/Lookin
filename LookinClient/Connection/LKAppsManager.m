@@ -43,24 +43,25 @@ NSString *const LKInspectingAppDidEndNotificationName = @"LKInspectingAppDidEndN
         _didAutoReconnectSucc = [RACSubject subject];
         
         @weakify(self);
-        [[[[LKConnectionManager sharedInstance].channelWillEnd filter:^BOOL(Lookin_PTChannel *channel) {
+        // 连接状态会直接驱动多个页面的布局和内容，统一投递到主线程，避免 UI 在后台线程被更新。
+        [[[[[[LKConnectionManager sharedInstance].channelWillEnd filter:^BOOL(Lookin_PTChannel *channel) {
             @strongify(self);
             return channel == self.inspectingApp.channel;
-            
-        }] flattenMap:^__kindof RACSignal * _Nullable(Lookin_PTChannel *channel) {
+
+        }] deliverOnMainThread] flattenMap:^__kindof RACSignal * _Nullable(Lookin_PTChannel *channel) {
             @strongify(self);
-            
+
             NSLog(@"current connection end");
-            
+
             LookinAppInfo *targetAppInfo = self.inspectingApp.appInfo;
             self.inspectingApp = nil;
-            
+
             RACSignal *signal = [[[RACSignal interval:3 onScheduler:[RACScheduler scheduler]] takeUntil:self.willConnectToApp] flattenMap:^__kindof RACSignal * _Nullable(NSDate * _Nullable value) {
                 return [self _fetchInspectableAppWithSimilarInfo:targetAppInfo];
             }];
             return signal;
-            
-        }] subscribeNext:^(LKInspectableApp *newApp) {
+
+        }] deliverOnMainThread] subscribeNext:^(LKInspectableApp *newApp) {
             @strongify(self);
             if (newApp) {
                 NSLog(@"Reconnected successfully.");
@@ -84,6 +85,15 @@ NSString *const LKInspectingAppDidEndNotificationName = @"LKInspectingAppDidEndN
 }
 
 - (void)setInspectingApp:(LKInspectableApp *)inspectingApp {
+    // 该属性被大量 UI 通过 KVO 观察。无论调用方在哪个线程（例如自动重连在 RACScheduler 后台线程上
+    // 完成），都统一切回主线程再赋值，避免在后台线程触发 NSSplitView / NSToolbar 等 UI 更新。
+    if (!NSThread.isMainThread) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.inspectingApp = inspectingApp;
+        });
+        return;
+    }
+
     BOOL shouldPostNotification = (_inspectingApp && !inspectingApp);
     
     _inspectingApp = inspectingApp;

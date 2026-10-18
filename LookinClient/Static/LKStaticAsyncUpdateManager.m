@@ -75,6 +75,9 @@
 /// 已经发送出去、尚未结束的 request
 @property(nonatomic, strong) LKDetailUpdateRequest *ongoingRequest;
 
+/// 每次发起新的 detail 请求时自增。断连或取消后旧请求的回调会携带过期 generation，据此忽略。
+@property(nonatomic, assign) NSUInteger requestGeneration;
+
 @end
 
 @implementation LKStaticAsyncUpdateManager
@@ -130,6 +133,17 @@
     NSLog(@"AsyncUpdate - endUpdating");
     // 这句会触发 sendTasks 方法里的 completed 事件，进而导致 delegate 被通知
     [InspectingApp cancelHierarchyDetailFetching];
+}
+
+- (void)resetAfterDisconnection {
+    // 递增 generation 后，旧请求后续的超时 / 完成回调都会被忽略
+    self.requestGeneration += 1;
+    BOOL hadOngoingRequest = (self.ongoingRequest != nil);
+    self.ongoingRequest = nil;
+    if (hadOngoingRequest) {
+        NSLog(@"AsyncUpdate - reset after disconnection");
+        [self notifyTasksCountToDelegate];
+    }
 }
 
 - (NSArray<LookinStaticAsyncUpdateTask *> *)makeMaximumTasks {
@@ -257,9 +271,9 @@
         
     } error:^(NSError * _Nullable error) {
         @strongify(self);
-        NSAssert(NO, @"");
+        // 连接断开时该请求也会失败，属于预期情况，交给上层决定是否提示
         [self.modifyingUpdateProgressSignal sendError:error];
-        
+
     } completed:^{
         @strongify(self);
         NSAssert(screenshotsTotalCount == screenshotsTotalCount, @"");
@@ -359,16 +373,21 @@
     [self endUpdating];
     
     NSArray<LookinStaticAsyncUpdateTasksPackage *> *packages = [self _makePackagesFromTasks:newTasks];
+    self.requestGeneration += 1;
+    NSUInteger generation = self.requestGeneration;
     self.ongoingRequest = [LKDetailUpdateRequest new];
     self.ongoingRequest.packages = packages;
-    
+
     [self notifyTasksCountToDelegate];
-    
+
     NSLog(@"AsyncUpdate - Will send %@ tasks.", @(newTasks.count));
-    
+
     @weakify(self);
     [[app fetchHierarchyDetailWithTaskPackages:packages] subscribeNext:^(NSArray<LookinDisplayItemDetail *> *details) {
         @strongify(self);
+        if (generation != self.requestGeneration) {
+            return;
+        }
         [details enumerateObjectsUsingBlock:^(LookinDisplayItemDetail * _Nonnull detail, NSUInteger idx, BOOL * _Nonnull stop) {
             if (detail.failureCode == -1) {
                 self.ongoingRequest.failedTasksCount += 1;
@@ -378,12 +397,16 @@
         }];
         self.ongoingRequest.finishedTasksCount += details.count;
         [self notifyTasksCountToDelegate];
-        
+
     } error:^(NSError * _Nullable error) {
         @strongify(self);
+        if (generation != self.requestGeneration) {
+            // 连接已断开或已被新请求取代，不再展示“请求超时”
+            return;
+        }
         self.ongoingRequest = nil;
         [self notifyTasksCountToDelegate];
-        
+
         NSString *msgTitle = [NSString stringWithFormat:NSLocalizedString(@"Request timeout, layer data transmission failed.", nil)];
         NSString *msgDetail = NSLocalizedString(@"Perhaps your iOS app is paused with breakpoint in Xcode, blocked by other tasks in main thread, or moved to background state.\nToo large screenshots may also lead to this error.", nil);
         error = LookinErrorMake(msgTitle, msgDetail);
@@ -394,24 +417,27 @@
     } completed:^{
         // 注意，用户手动取消请求后，也会走到这里
         @strongify(self);
+        if (generation != self.requestGeneration) {
+            return;
+        }
         if (self.ongoingRequest) {
             BOOL userCancel = (self.ongoingRequest.tasksTotalCount > self.ongoingRequest.finishedTasksCount);
             if (!userCancel) {
                 [self.succeededRequests addObject:self.ongoingRequest];
             }
-            
+
             if (self.ongoingRequest.failedTasksCount > 0) {
                 NSError *error = LookinErrorMake(NSLocalizedString(@"Some layer data failed to transmit.", nil), NSLocalizedString(@"It may be due to changes in the layer structure within the iOS app. You can try reloading the entire structure in Lookin.", nil));
                 [self.delegate detailUpdateReceivedError:error];
             }
-            
+
             self.ongoingRequest = nil;
         } else {
             NSAssert(NO, @"");
         }
         [self notifyTasksCountToDelegate];
         [LKPerformanceReporter.sharedInstance didComplete];
-        
+
         if (completionBlock) {
             completionBlock();
         }

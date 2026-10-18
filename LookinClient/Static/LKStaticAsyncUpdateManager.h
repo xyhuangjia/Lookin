@@ -34,6 +34,10 @@
 /// 终止拉取
 - (void)endUpdating;
 
+/// 当前连接断开时调用：丢弃进行中的请求并通知 delegate 回到空闲状态。
+/// 之后到达的超时 / 回调会被忽略，避免断连后弹出“请求超时”或把旧请求算进新连接。
+- (void)resetAfterDisconnection;
+
 - (void)updateAfterModifyingDisplayItem:(LookinStaticDisplayItem *)displayItem;
 /// updateAfterModifyingDisplayItem 的更新进度，data 是 RACTwoTuple<NSNumber *>，分别为已经收到的图像数量、总的图像数量
 @property(nonatomic, strong, readonly) RACSubject *modifyingUpdateProgressSignal;

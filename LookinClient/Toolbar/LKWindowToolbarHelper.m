@@ -37,6 +37,16 @@ static NSString * const Key_BindingAppInfo = @"AppInfo";
 /// App 切换按钮在内容宽度之外额外预留的横向空间，避免 App 名称与设备信息显得局促
 static const CGFloat LKToolbarAppItemExtraWidth = 46;
 
+/// NSToolbarItem.minSize / maxSize 已弃用且可能导致内容被裁切。
+/// 改为给自定义 view 加尺寸约束，由系统自动测量 item 尺寸。
+static NSLayoutConstraint *LKApplyFixedSizeToToolbarItemView(NSView *view, CGFloat width, CGFloat height) {
+    view.translatesAutoresizingMaskIntoConstraints = NO;
+    NSLayoutConstraint *widthConstraint = [view.widthAnchor constraintEqualToConstant:width];
+    widthConstraint.active = YES;
+    [[view.heightAnchor constraintEqualToConstant:height] setActive:YES];
+    return widthConstraint;
+}
+
 @interface LKWindowToolbarHelper ()
 
 @end
@@ -74,7 +84,7 @@ static const CGFloat LKToolbarAppItemExtraWidth = 46;
         NSToolbarItem *item = [[NSToolbarItem alloc] initWithItemIdentifier:LKToolBarIdentifier_Measure];
         item.label = NSLocalizedString(@"Measure", nil);
         item.view = button;
-        item.minSize = NSMakeSize(48, 34);
+        LKApplyFixedSizeToToolbarItemView(item.view, 48, 34);
 
         [manager.measureState subscribe:self action:@selector(_handleMeasureStateDidChange:) relatedObject:button sendAtOnce:YES];
         
@@ -93,7 +103,7 @@ static const CGFloat LKToolbarAppItemExtraWidth = 46;
         NSToolbarItem *item = [[NSToolbarItem alloc] initWithItemIdentifier:LKToolBarIdentifier_Rotation];
         item.label = NSLocalizedString(@"Free Rotation", nil);
         item.view = button;
-        item.minSize = NSMakeSize(48, 34);
+        LKApplyFixedSizeToToolbarItemView(item.view, 48, 34);
 
         [manager.freeRotation subscribe:self action:@selector(_handleFreeRotationDidChange:) relatedObject:button sendAtOnce:YES];
         
@@ -113,7 +123,7 @@ static const CGFloat LKToolbarAppItemExtraWidth = 46;
         NSToolbarItem *item = [[NSToolbarItem alloc] initWithItemIdentifier:LKToolBarIdentifier_Dimension];
         item.label = @"2D / 3D";
         item.view = control;
-        item.minSize = NSMakeSize(90, 34);
+        LKApplyFixedSizeToToolbarItemView(item.view, 90, 34);
 
         [manager.previewDimension subscribe:self action:@selector(_handleDimensionDidChange:) relatedObject:control sendAtOnce:YES];
 
@@ -140,7 +150,7 @@ static const CGFloat LKToolbarAppItemExtraWidth = 46;
         
         item.label = NSLocalizedString(@"Zoom", nil);
         item.view = scaleView;
-        item.minSize = NSMakeSize(160, 34);
+        LKApplyFixedSizeToToolbarItemView(item.view, 160, 34);
         
         [manager.previewScale subscribe:self action:@selector(_handlePreviewScaleDidChange:) relatedObject:scaleView.slider sendAtOnce:YES];
         
@@ -158,7 +168,7 @@ static const CGFloat LKToolbarAppItemExtraWidth = 46;
         
         NSToolbarItem *item = [[NSToolbarItem alloc] initWithItemIdentifier:LKToolBarIdentifier_Setting];
         item.view = button;
-        item.minSize = NSMakeSize(48, 34);
+        LKApplyFixedSizeToToolbarItemView(item.view, 48, 34);
         return item;
     }
     
@@ -173,7 +183,7 @@ static const CGFloat LKToolbarAppItemExtraWidth = 46;
         NSToolbarItem *item = [[NSToolbarItem alloc] initWithItemIdentifier:LKToolBarIdentifier_Reload];
         item.label = NSLocalizedString(@"Reload", nil);
         item.view = button;
-        item.minSize = NSMakeSize(68, 34);
+        LKApplyFixedSizeToToolbarItemView(item.view, 68, 34);
         return item;
     }
     
@@ -185,15 +195,10 @@ static const CGFloat LKToolbarAppItemExtraWidth = 46;
         item.label = NSLocalizedString(@"Select App", nil);
         item.view = button;
         
+        NSLayoutConstraint *widthConstraint = LKApplyFixedSizeToToolbarItemView(button, 42, 34);
         [[RACObserve([LKAppsManager sharedInstance], inspectingApp) takeUntil:item.rac_willDeallocSignal] subscribeNext:^(LKInspectableApp *app) {
             button.appInfo = app.appInfo;
-            if (app) {
-                item.minSize = NSMakeSize(button.bestWidth + LKToolbarAppItemExtraWidth, 34);
-                item.maxSize = item.minSize;
-            } else {
-                item.minSize = NSMakeSize(42, 34);
-                item.maxSize = item.minSize;
-            }
+            widthConstraint.constant = app ? (button.bestWidth + LKToolbarAppItemExtraWidth) : 42;
         }];
         return item;
     }
@@ -206,7 +211,7 @@ static const CGFloat LKToolbarAppItemExtraWidth = 46;
 		NSToolbarItem *item = [[NSToolbarItem alloc] initWithItemIdentifier:LKToolBarIdentifier_App_Wireless];
 		item.label = NSLocalizedString(@"Wireless Connections", nil);
 		item.view = button;
-		item.minSize = NSMakeSize(48, 34);
+		LKApplyFixedSizeToToolbarItemView(item.view, 48, 34);
 		return item;
 	}
     
@@ -222,7 +227,7 @@ static const CGFloat LKToolbarAppItemExtraWidth = 46;
         NSToolbarItem *item = [[NSToolbarItem alloc] initWithItemIdentifier:LKToolBarIdentifier_Console];
         item.label = NSLocalizedString(@"Console", nil);
         item.view = button;
-        item.minSize = NSMakeSize(48, 34);
+        LKApplyFixedSizeToToolbarItemView(item.view, 48, 34);
         return item;
     }
     
@@ -238,7 +243,7 @@ static const CGFloat LKToolbarAppItemExtraWidth = 46;
         NSToolbarItem *item = [[NSToolbarItem alloc] initWithItemIdentifier:LKToolBarIdentifier_FastMode];
         item.label = NSLocalizedString(@"Fast Mode", nil);
         item.view = button;
-        item.minSize = NSMakeSize(60, 34);
+        LKApplyFixedSizeToToolbarItemView(item.view, 60, 34);
         
         [manager.fastMode subscribe:self action:@selector(_handleFastModeDidChange:) relatedObject:button sendAtOnce:YES];
         return item;
@@ -254,7 +259,7 @@ static const CGFloat LKToolbarAppItemExtraWidth = 46;
         
         NSToolbarItem *item = [[NSToolbarItem alloc] initWithItemIdentifier:LKToolBarIdentifier_Add];
         item.view = button;
-        item.minSize = NSMakeSize(48, 34);
+        LKApplyFixedSizeToToolbarItemView(item.view, 48, 34);
         return item;
     }
     
@@ -268,7 +273,7 @@ static const CGFloat LKToolbarAppItemExtraWidth = 46;
         
         NSToolbarItem *item = [[NSToolbarItem alloc] initWithItemIdentifier:LKToolBarIdentifier_Remove];
         item.view = button;
-        item.minSize = NSMakeSize(48, 34);
+        LKApplyFixedSizeToToolbarItemView(item.view, 48, 34);
         return item;
     }
     
@@ -282,7 +287,7 @@ static const CGFloat LKToolbarAppItemExtraWidth = 46;
         
         NSToolbarItem *item = [[NSToolbarItem alloc] initWithItemIdentifier:LKToolBarIdentifier_Message];
         item.view = button;
-        item.minSize = NSMakeSize(48, 34);
+        LKApplyFixedSizeToToolbarItemView(item.view, 48, 34);
         return item;
     }
     
@@ -299,9 +304,7 @@ static const CGFloat LKToolbarAppItemExtraWidth = 46;
     NSToolbarItem *item = [[NSToolbarItem alloc] initWithItemIdentifier:LKToolBarIdentifier_AppInReadMode];
     item.label = @"iOS App";
     item.view = button;
-    item.minSize = NSMakeSize(button.bestWidth + LKToolbarAppItemExtraWidth, 34);
-    
-    item.maxSize = item.minSize;
+    LKApplyFixedSizeToToolbarItemView(button, button.bestWidth + LKToolbarAppItemExtraWidth, 34);
     return item;
 }
 

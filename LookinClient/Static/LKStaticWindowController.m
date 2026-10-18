@@ -45,6 +45,9 @@
 @property(nonatomic, assign) BOOL isFetchingHierarchy;
 @property(nonatomic, assign) BOOL isFetchingDetails;
 
+/// 断连 / 重新发起请求时自增，用于丢弃旧 hierarchy 请求在重连之后才到达的超时回调
+@property(nonatomic, assign) NSUInteger hierarchyFetchGeneration;
+
 @end
 
 @implementation LKStaticWindowController
@@ -96,7 +99,13 @@
         [[RACObserve(self, isFetchingHierarchy) distinctUntilChanged] subscribeNext:^(NSNumber *x) {
             reloadItem.enabled = ![x boolValue];
         }];
-        
+
+        // 断连后自动重连成功：立刻重新拉取 hierarchy，避免页面继续展示断连前的旧数据
+        [[[LKAppsManager sharedInstance].didAutoReconnectSucc deliverOnMainThread] subscribeNext:^(LKInspectableApp *app) {
+            @strongify(self);
+            [self _handleAutoReconnectSucc:app];
+        }];
+
         [RACObserve([LKStaticHierarchyDataSource sharedInstance], selectedItem) subscribeNext:^(id  _Nullable x) {
             @strongify(self);
             NSButton *measureButton = (NSButton *)self.toolbarItemsMap[LKToolBarIdentifier_Measure].view;
@@ -191,16 +200,31 @@
         }
         
     } else {
-        [self.viewController.progressView animateToProgress:InitialIndicatorProgressWhenFetchHierarchy];
-        
         BOOL isTheSameApp = [[LKAppsManager sharedInstance].inspectingApp.appInfo isEqualToAppInfo:app.appInfo];
-        
+
+        // 与自动重连 / reload 共用 generation：手动切换 App 时，尚未返回的旧请求结果直接丢弃
+        self.hierarchyFetchGeneration += 1;
+        NSUInteger generation = self.hierarchyFetchGeneration;
+        self.isFetchingHierarchy = YES;
+        [self.viewController.progressView animateToProgress:InitialIndicatorProgressWhenFetchHierarchy];
+
+        @weakify(self);
         [[app fetchHierarchyData] subscribeNext:^(LookinHierarchyInfo *info) {
+            @strongify(self);
+            if (generation != self.hierarchyFetchGeneration) {
+                return;
+            }
+            self.isFetchingHierarchy = NO;
             [self.viewController.progressView finishWithCompletion:nil];
             [LKAppsManager sharedInstance].inspectingApp = app;
             [[LKStaticHierarchyDataSource sharedInstance] reloadWithHierarchyInfo:info keepState:isTheSameApp];
-            
+
         } error:^(NSError * _Nullable error) {
+            @strongify(self);
+            if (generation != self.hierarchyFetchGeneration) {
+                return;
+            }
+            self.isFetchingHierarchy = NO;
             AlertError(error, self.window);
             [self.viewController.progressView resetToZero];
         }];
@@ -269,8 +293,56 @@
 #pragma mark - Event Handler
 
 - (void)_handleInspectingAppDidEnd:(id)obj {
+    // 先让 AsyncUpdateManager 丢弃旧请求并通知 delegate 回到空闲态（此时 isFetchingDetails 仍为 YES，
+    // 因此 toolbar 上残留的 “x / y” 文案和停止图标会被重置），再清理本控制器的状态。
+    [[LKStaticAsyncUpdateManager sharedInstance] resetAfterDisconnection];
+    self.hierarchyFetchGeneration += 1;
     self.isFetchingHierarchy = NO;
     self.isFetchingDetails = NO;
+    [self.viewController.progressView finishWithCompletion:nil];
+}
+
+- (void)_handleAutoReconnectSucc:(LKInspectableApp *)app {
+    if (!app || self.isFetchingHierarchy) {
+        return;
+    }
+    // 自动重连是后台行为，失败时不弹窗打断用户
+    [self _fetchHierarchyForApp:app keepState:YES showsErrorAlert:NO];
+}
+
+- (void)_fetchHierarchyForApp:(LKInspectableApp *)app keepState:(BOOL)keepState showsErrorAlert:(BOOL)showsErrorAlert {
+    self.hierarchyFetchGeneration += 1;
+    NSUInteger generation = self.hierarchyFetchGeneration;
+
+    self.isFetchingHierarchy = YES;
+    [LKPerformanceReporter.sharedInstance willStartReload];
+    [self.viewController.progressView animateToProgress:InitialIndicatorProgressWhenFetchHierarchy];
+
+    @weakify(self);
+    [[app fetchHierarchyData] subscribeNext:^(LookinHierarchyInfo *info) {
+        @strongify(self);
+        if (generation != self.hierarchyFetchGeneration) {
+            return;
+        }
+        self.isFetchingHierarchy = NO;
+        [self.viewController.progressView finishWithCompletion:nil];
+        if (info) {
+            [[LKStaticHierarchyDataSource sharedInstance] reloadWithHierarchyInfo:info keepState:keepState];
+        }
+        [LKPerformanceReporter.sharedInstance didFetchHierarchy];
+
+    } error:^(NSError * _Nullable error) {
+        @strongify(self);
+        if (generation != self.hierarchyFetchGeneration) {
+            // 连接已断开或已有更新的请求，忽略旧请求的超时
+            return;
+        }
+        self.isFetchingHierarchy = NO;
+        [self.viewController.progressView resetToZero];
+        if (showsErrorAlert && [LKAppsManager sharedInstance].inspectingApp) {
+            [[NSAlert alertWithError:error] beginSheetModalForWindow:self.window completionHandler:nil];
+        }
+    }];
 }
 
 - (void)_handleReload {
@@ -289,28 +361,8 @@
     if (self.isFetchingHierarchy) {
         return;
     }
-    
-    self.isFetchingHierarchy = YES;
-    
-    [self.viewController.progressView animateToProgress:InitialIndicatorProgressWhenFetchHierarchy];
-    
-    [LKPerformanceReporter.sharedInstance willStartReload];
-    @weakify(self);
-    [[app fetchHierarchyData] subscribeNext:^(LookinHierarchyInfo *info) {
-        [self.viewController.progressView finishWithCompletion:nil];
-        [[LKStaticHierarchyDataSource sharedInstance] reloadWithHierarchyInfo:info keepState:YES];
-        self.isFetchingHierarchy = NO;
-        
-        [LKPerformanceReporter.sharedInstance didFetchHierarchy];
-        
-    } error:^(NSError * _Nullable error) {
-        // error
-        @strongify(self);
-        [self.viewController.progressView resetToZero];
-        self.isFetchingHierarchy = NO;
-        
-        [[NSAlert alertWithError:error] beginSheetModalForWindow:self.window completionHandler:nil];
-    }];
+
+    [self _fetchHierarchyForApp:app keepState:YES showsErrorAlert:YES];
 }
 
 - (void)_handleApp {

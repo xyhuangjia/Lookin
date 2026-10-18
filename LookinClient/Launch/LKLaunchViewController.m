@@ -31,6 +31,9 @@
 @property(nonatomic, copy) void (^crashBlock)(void);
 
 @property(nonatomic, assign) BOOL isEnteringApp;
+@property(nonatomic, assign) BOOL isReloading;
+/// 正在拉取列表时又收到了设备变更，等本次拉取结束后立即再拉一次
+@property(nonatomic, assign) BOOL needsReloadAfterFinishing;
 
 @property(nonatomic, copy) NSArray<LookinAppInfo *> *appInfos;
 
@@ -85,6 +88,17 @@
 
     //未配对设备连入时自动弹出无线设备列表，展示配对码（蓝牙式配对）
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_handleUnpairedDeviceArrived:) name:LKUnpairedWirelessDeviceDidArriveNotification object:nil];
+
+    // 设备断开时立即刷新列表，不必等下一次 1.5 秒轮询；页面已关闭则忽略
+    @weakify(self);
+    [[[LKConnectionManager sharedInstance].channelWillEnd deliverOnMainThread] subscribeNext:^(id  _Nullable channel) {
+        @strongify(self);
+        if (![self _isVisible]) {
+            return;
+        }
+        [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(_reloadWithAutoEntering:) object:nil];
+        [self _reloadWithAutoEntering:NO];
+    }];
     
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         // 延时一下，因为如果有 USB 设备被连接，则需要一定时间来使 ConnectionManager 检测到，这个时间实际实验大概 0.1 秒，这里稍微宽裕一点给个 0.2 秒
@@ -118,19 +132,40 @@
 
 #pragma mark - Others
 
+- (BOOL)_isVisible {
+    return self.window != nil && self.window.isVisible;
+}
+
 - (void)_reloadWithAutoEntering:(BOOL)autoEnter {
-    if (self.isEnteringApp) {
+    if (self.isEnteringApp || ![self _isVisible]) {
         return;
     }
-    
+    if (self.isReloading) {
+        // 设备变更事件可能在一次较慢的端口探测尚未结束时到达，标记一下，结束后立刻补一次
+        self.needsReloadAfterFinishing = YES;
+        return;
+    }
+
+    self.isReloading = YES;
     @weakify(self);
     [[[[LKAppsManager sharedInstance] fetchAppInfosWithImage:YES localInfos:self.appInfos] deliverOnMainThread] subscribeNext:^(NSArray<LKInspectableApp *> *apps) {
         @strongify(self);
-        
+        self.isReloading = NO;
+
+        if (![self _isVisible]) {
+            // 拉取期间页面已被关闭
+            return;
+        }
+        if (self.needsReloadAfterFinishing) {
+            self.needsReloadAfterFinishing = NO;
+            [self _reloadWithAutoEntering:NO];
+            return;
+        }
+
         self.appInfos = [apps lookin_map:^id(NSUInteger idx, LKInspectableApp *value) {
             return value.appInfo;
         }];
-        
+
         if (autoEnter && apps.count == 1 && !apps.firstObject.serverVersionError) {
             // 进入页面时自动触发的 refetch，并且只有一个 app，则自动拉取 hierarchy
             [self _renderWithApps:apps];
@@ -144,13 +179,17 @@
             [self _renderWithApps:apps];
 
             // 每 1.5 秒刷新一次
-            
+
             [self performSelector:_cmd withObject:nil afterDelay:1.5];
 //            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
 //                [self _reloadWithAutoEntering:NO];
 //            });
         }
     }];
+}
+
+- (void)dealloc {
+    [NSObject cancelPreviousPerformRequestsWithTarget:self];
 }
 
 - (void)_handleClickAppView:(LKLaunchAppView *)view {

@@ -196,7 +196,11 @@ NSString *const LKAppShowConsoleNotificationName = @"LKAppShowConsoleNotificatio
         @strongify(self);
         if (app) {
             [self.imageSyncTipsView setImageByDeviceType:app.appInfo.deviceType];
+        } else {
+            // 断连后不应继续展示“正在更新截图”这类与连接相关的进行中状态
+            self.imageSyncTipsView.hidden = YES;
         }
+        [self.view setNeedsLayout:YES];
     }];
     
     LKStaticAsyncUpdateManager *updateMng = [LKStaticAsyncUpdateManager sharedInstance];
@@ -219,6 +223,10 @@ NSString *const LKAppShowConsoleNotificationName = @"LKAppShowConsoleNotificatio
         @strongify(self);
         self.imageSyncTipsView.hidden = YES;
         [self.progressView resetToZero];
+        if (![LKAppsManager sharedInstance].inspectingApp) {
+            // 连接已断开，由断连 tips / 自动重连接管状态
+            return;
+        }
         AlertError(error, self.view.window);
     }];
     [preferenceManager.fastMode subscribe:self action:@selector(_handleFastModeChange:) relatedObject:nil sendAtOnce:YES];
