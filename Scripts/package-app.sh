@@ -26,6 +26,13 @@ if [[ ! -d "${APP_PATH}" ]]; then
   "${ROOT_DIR}/Scripts/build-app.sh"
 fi
 
+# 兜底：待打包的 app 若为 ad-hoc 签名且未统一重签（如直接取 Xcode/xcodebuild 产物），
+# 主程序与嵌入框架的 Team ID 不一致会导致安装后启动即崩，打包前先重签
+if [[ "$(codesign -dv "${APP_PATH}" 2>&1)" == *"Signature=adhoc"* ]]; then
+  echo "==> 检测到 ad-hoc 签名，统一重签内嵌代码: ${APP_PATH}"
+  codesign --force --deep --sign - "${APP_PATH}"
+fi
+
 APP_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "${APP_PATH}/Contents/Info.plist")"
 BASE_NAME="Lookin-${APP_VERSION}${LOOKIN_PACKAGE_SUFFIX:+-${LOOKIN_PACKAGE_SUFFIX}}"
 
