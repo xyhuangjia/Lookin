@@ -96,4 +96,14 @@ CG_INLINE HorizontalMargins HorizontalMarginsMake(CGFloat left, CGFloat right) {
 
 + (BOOL)validateFrame:(CGRect)frame;
 
+/// 解码 Lookin 协议消息及 .lookin 文档时允许的类集合。
+/// 这里不能包含 [NSObject class]：NSSecureCoding 的白名单含 NSObject 等于放行任意类，
+/// 系统会打印 validateAllowedClass: 安全警告，并声明未来会升级为错误。
+/// 由于大多数 Lookin 模型的 initWithCoder: 使用 decodeObjectForKey:，
+/// 归档中的全部嵌套类型都必须显式列在这里，否则会被解码成 nil。
++ (NSSet<Class> *)lookinAllowedUnarchiveClasses;
+
+/// 使用上述白名单解码一个 Lookin KeyedArchive
++ (id)lookinUnarchivedObjectFromData:(NSData *)data error:(NSError **)error;
+
 @end

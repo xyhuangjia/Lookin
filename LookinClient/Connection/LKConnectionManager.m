@@ -15,6 +15,7 @@
 #import "LKConnectionRequest.h"
 #import "LKServerVersionRequestor.h"
 #import "ECOChannelManager.h"
+#import "LKHelper.h"
 
 static NSIndexSet * PushFrameTypeList(void) {
     static NSIndexSet *list;
@@ -670,7 +671,7 @@ NSString *const LKUnpairedWirelessDeviceDidArriveNotification = @"LKUnpairedWire
     if ([PushFrameTypeList() containsIndex:type]) {
         NSData *data = [NSData dataWithContentsOfDispatchData:payload.dispatchData];
         NSError *unarchiveError = nil;
-        NSObject *unarchivedData = [NSKeyedUnarchiver unarchivedObjectOfClass:[NSObject class] fromData:data error:&unarchiveError];
+        NSObject *unarchivedData = [LKHelper lookinUnarchivedObjectFromData:data error:&unarchiveError];
         if (unarchiveError) {
             //        NSAssert(NO, @"");
         }
@@ -691,7 +692,7 @@ NSString *const LKUnpairedWirelessDeviceDidArriveNotification = @"LKUnpairedWire
 
     NSData *data = [NSData dataWithContentsOfDispatchData:payload.dispatchData];
     NSError *unarchiveError = nil;
-    LookinConnectionResponseAttachment *attachment = [NSKeyedUnarchiver unarchivedObjectOfClass:[NSObject class] fromData:data error:&unarchiveError];
+    LookinConnectionResponseAttachment *attachment = [LKHelper lookinUnarchivedObjectFromData:data error:&unarchiveError];
     if (unarchiveError) {
         NSLog(@"Error:%@", unarchiveError);
 //        NSAssert(NO, @"");
@@ -702,7 +703,7 @@ NSString *const LKUnpairedWirelessDeviceDidArriveNotification = @"LKUnpairedWire
 
 - (void)_didReceiveDataWithChannel:(id<LookinChannelProtocol>)channel data:(NSData *)data activeRequest:(LKConnectionRequest *)activeRequest {
 	NSError *unarchiveError = nil;
-	LookinConnectionResponseAttachment *attachment = [NSKeyedUnarchiver unarchivedObjectOfClass:[NSObject class] fromData:data error:&unarchiveError];
+	LookinConnectionResponseAttachment *attachment = [LKHelper lookinUnarchivedObjectFromData:data error:&unarchiveError];
 	if (unarchiveError) {
 //        NSAssert(NO, @"");
 	}

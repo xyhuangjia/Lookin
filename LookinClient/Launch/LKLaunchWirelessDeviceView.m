@@ -50,12 +50,11 @@
 		[self addSubview:self.stateLabel];
 		
 		self.unpairControl = LKTextControl.new;
-		//按钮样式：蓝字 + 边框圆角 + 按压反馈，明确可点击
-		self.unpairControl.label.textColor = [NSColor linkColor];
+		//按钮样式：蓝底白字 + 圆角 + 按压反馈，明确可点击（背景色在 updateLayer 里按 appearance 解析）
+		self.unpairControl.label.textColor = [NSColor whiteColor];
 		self.unpairControl.label.font = NSFontMake(11);
 		self.unpairControl.insets = NSEdgeInsetsMake(3, 8, 3, 8);
 		self.unpairControl.layer.cornerRadius = 4;
-		self.unpairControl.layer.borderWidth = 1;
 		self.unpairControl.adjustAlphaWhenClick = YES;
 		[self addSubview:self.unpairControl];
 
@@ -170,8 +169,8 @@
 	[super updateLayer];
 	self.hoverBgLayer.backgroundColor = self.effectiveAppearance.lk_isDarkMode ? LookinColorRGBAMake(0, 0, 0, .17).CGColor : LookinColorRGBAMake(0, 0, 0, .08).CGColor;
 	self.layer.backgroundColor = [NSColor clearColor].CGColor;
-	//「取消配对」按钮的边框色需跟随明暗模式
-	self.unpairControl.layer.borderColor = self.effectiveAppearance.lk_isDarkMode ? [NSColor separatorColor].CGColor : [NSColor gridColor].CGColor;
+	//「取消配对」按钮为蓝底白字，动态色的 CGColor 需随 appearance 重新解析
+	self.unpairControl.layer.backgroundColor = [NSColor systemBlueColor].CGColor;
 }
 
 - (void)updateTrackingAreas {

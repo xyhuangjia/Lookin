@@ -21,6 +21,7 @@
 #import "LKAboutWindowController.h"
 #import "LKJSONAttributeWindowController.h"
 #import "LKJSONAttributeViewController.h"
+#import "LKHelper.h"
 @import AppCenter;
 @import AppCenterAnalytics;
 
@@ -95,7 +96,10 @@
         return NO;
     }
     
-    id dataObj = [NSKeyedUnarchiver unarchivedObjectOfClass:[NSObject class] fromData:data error:error];
+    // 使用显式白名单解码，不能用 [NSObject class]：会触发 NSSecureCoding validateAllowedClass 安全警告。
+    // 白名单必须覆盖 LookinHierarchyFile 的整棵对象图（hierarchyInfo、displayItems 等），
+    // 否则嵌套对象会被解码成 nil，导致合法的 .lookin 文档也被判为损坏。
+    id dataObj = [LKHelper lookinUnarchivedObjectFromData:data error:error];
     if (!dataObj) {
         // 比如拖了一个 pdf 格式的文件进来就会走到这里
         if (error) {

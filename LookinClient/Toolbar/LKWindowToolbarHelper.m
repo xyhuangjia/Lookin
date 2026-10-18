@@ -34,6 +34,9 @@ NSToolbarItemIdentifier const LKToolBarIdentifier_FastMode = @"19";
 static NSString * const Key_BindingPreferenceManager = @"PreferenceManager";
 static NSString * const Key_BindingAppInfo = @"AppInfo";
 
+/// App 切换按钮在内容宽度之外额外预留的横向空间，避免 App 名称与设备信息显得局促
+static const CGFloat LKToolbarAppItemExtraWidth = 46;
+
 @interface LKWindowToolbarHelper ()
 
 @end
@@ -185,7 +188,7 @@ static NSString * const Key_BindingAppInfo = @"AppInfo";
         [[RACObserve([LKAppsManager sharedInstance], inspectingApp) takeUntil:item.rac_willDeallocSignal] subscribeNext:^(LKInspectableApp *app) {
             button.appInfo = app.appInfo;
             if (app) {
-                item.minSize = NSMakeSize(button.bestWidth + 6, 34);
+                item.minSize = NSMakeSize(button.bestWidth + LKToolbarAppItemExtraWidth, 34);
                 item.maxSize = item.minSize;
             } else {
                 item.minSize = NSMakeSize(42, 34);
@@ -296,7 +299,7 @@ static NSString * const Key_BindingAppInfo = @"AppInfo";
     NSToolbarItem *item = [[NSToolbarItem alloc] initWithItemIdentifier:LKToolBarIdentifier_AppInReadMode];
     item.label = @"iOS App";
     item.view = button;
-    item.minSize = NSMakeSize(button.bestWidth + 6, 34);
+    item.minSize = NSMakeSize(button.bestWidth + LKToolbarAppItemExtraWidth, 34);
     
     item.maxSize = item.minSize;
     return item;

@@ -10,9 +10,17 @@
 #import "LookinHierarchyFile.h"
 #import "LKReadWindowController.h"
 #import "LKNavigationManager.h"
+#import "LKHelper.h"
 
 // 点击 menu 里的 “打开文件” 会走到这里的一系列方法
 @implementation LookinDocument
+
+// 显式声明不使用自动保存，避免新版 AppKit 打印 "default value of NO for autosavesInPlace" 警告。
+// 默认值即为 NO，此处的返回值不改变现有行为。
+// Declare NO explicitly to silence AppKit's default-value warning; behavior is unchanged.
++ (BOOL)autosavesInPlace {
+    return NO;
+}
 
 - (void)makeWindowControllers {
     LKReadWindowController *wc = [[LKReadWindowController alloc] initWithFile:self.hierarchyFile];
@@ -41,7 +49,7 @@
 
 - (BOOL)readFromData:(NSData *)data ofType:(NSString *)typeName error:(NSError **)outError {    
     NSError *unarchiveError = nil;
-    LookinHierarchyFile *hierarchyFile = [NSKeyedUnarchiver unarchivedObjectOfClass:[NSObject class] fromData:data error:&unarchiveError];
+    LookinHierarchyFile *hierarchyFile = [LKHelper lookinUnarchivedObjectFromData:data error:&unarchiveError];
     
     if (unarchiveError) {
         if (outError) {

@@ -8,6 +8,25 @@
 
 #import "LKHelper.h"
 #import "NSString+Score.h"
+#import "LookinAppInfo.h"
+#import "LookinAttribute.h"
+#import "LookinAttributeModification.h"
+#import "LookinAttributesGroup.h"
+#import "LookinAttributesSection.h"
+#import "LookinAutoLayoutConstraint.h"
+#import "LookinConnectionAttachment.h"
+#import "LookinConnectionResponseAttachment.h"
+#import "LookinCustomAttrModification.h"
+#import "LookinCustomDisplayItemInfo.h"
+#import "LookinDisplayItem.h"
+#import "LookinDisplayItemDetail.h"
+#import "LookinEventHandler.h"
+#import "LookinHierarchyFile.h"
+#import "LookinHierarchyInfo.h"
+#import "LookinIvarTrace.h"
+#import "LookinObject.h"
+#import "LookinStaticAsyncUpdateTask.h"
+#import "LookinTuple.h"
 
 const CGFloat HierarchyMinWidth = 200;
 const CGFloat MeasureViewWidth = 240;
@@ -48,6 +67,68 @@ const CGFloat ZoomSliderMaxValue = 2.8;
     NSDictionary *infoDictionary = [[NSBundle mainBundle] infoDictionary];
     NSString *string = [infoDictionary objectForKey:@"CFBundleShortVersionString"];
     return string ? : @"";
+}
+
++ (NSSet<Class> *)lookinAllowedUnarchiveClasses {
+    static NSSet<Class> *classes;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        classes = [NSSet setWithObjects:
+                   // 协议信封及消息根类型
+                   [LookinConnectionAttachment class],
+                   [LookinConnectionResponseAttachment class],
+                   [LookinHierarchyFile class],
+                   // 模型类型（LookinHierarchyInfo 的整棵对象图）
+                   [LookinAppInfo class],
+                   [LookinAttribute class],
+                   [LookinAttributeModification class],
+                   [LookinAttributesGroup class],
+                   [LookinAttributesSection class],
+                   [LookinAutoLayoutConstraint class],
+                   [LookinCustomAttrModification class],
+                   [LookinCustomDisplayItemInfo class],
+                   [LookinDisplayItem class],
+                   [LookinDisplayItemDetail class],
+                   [LookinEventHandler class],
+                   [LookinHierarchyInfo class],
+                   [LookinIvarTrace class],
+                   [LookinObject class],
+                   [LookinStaticAsyncUpdateTask class],
+                   [LookinStaticAsyncUpdateTasksPackage class],
+                   [LookinTwoTuple class],
+                   [LookinStringTwoTuple class],
+                   // Foundation / AppKit 基础类型
+                   [NSDictionary class],
+                   [NSMutableDictionary class],
+                   [NSArray class],
+                   [NSMutableArray class],
+                   [NSSet class],
+                   [NSMutableSet class],
+                   [NSString class],
+                   [NSMutableString class],
+                   [NSNumber class],
+                   [NSData class],
+                   [NSMutableData class],
+                   [NSValue class],
+                   [NSNull class],
+                   [NSDate class],
+                   [NSURL class],
+                   [NSUUID class],
+                   [NSColor class],
+                   [NSImage class],
+                   nil];
+    });
+    return classes;
+}
+
++ (id)lookinUnarchivedObjectFromData:(NSData *)data error:(NSError **)error {
+    if (!data) {
+        if (error) {
+            *error = [NSError errorWithDomain:NSCocoaErrorDomain code:NSFileReadCorruptFileError userInfo:@{NSLocalizedDescriptionKey: @"The archive data is empty."}];
+        }
+        return nil;
+    }
+    return [NSKeyedUnarchiver unarchivedObjectOfClasses:[self lookinAllowedUnarchiveClasses] fromData:data error:error];
 }
 
 + (void)openLookinWebsiteWithPath:(NSString *)path {
