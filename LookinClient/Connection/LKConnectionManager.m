@@ -546,9 +546,8 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
 		self.wirelessChannel = ECOChannelManager.new;
 	}
 	@weakify(self);
-	// 接收到数据回调
+	// 接收到数据回调（每个数据包都会进来，不要在这里 NSLog，会刷屏）
 	self.wirelessChannel.receivedBlock = ^(ECOChannelDeviceInfo *device, NSData *data, NSDictionary *extraInfo) {
-		NSLog(@"🚀 Lookin receivedBlock device:%@", device);
 		NSNumber *tag = extraInfo[@"tag"];
 		NSNumber *type = extraInfo[@"type"];
 		LKConnectionRequest *activeRequest = [device.activeRequests lookin_firstFiltered:^BOOL(LKConnectionRequest *obj) {
