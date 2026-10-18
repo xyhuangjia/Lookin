@@ -97,9 +97,10 @@
 			$(obj).sizeToFit.x(0).y(y);
 			y = obj.$maxY + self->_appViewInterSpace;
 		}];
-		$(self.deviceViews).groupHorAlign;
-		
-		$(self.tutorialControl).sizeToFit.horAlign.offsetX(3).bottom(10);
+		//注意：这里不能用 groupHorAlign —— 它按 superview 宽度整体居中，而 popover 定宽晚于本次
+		//布局（superview 宽度可能还是 0），会把行平移到负坐标、行内容整体漂出可视区。
+		//tutorial 链接同理不用 horAlign，改为以首行宽度（= 内容宽）为锚居中
+		$(self.tutorialControl).sizeToFit.midX(self.deviceViews.firstObject.$width / 2).bottom(10);
 	} else {
 		$(self.tutorialControl).sizeToFit.horAlign.offsetX(3);
 		if (self.subtitleLabel.isVisible) {

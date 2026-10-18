@@ -66,19 +66,21 @@
 
 - (void)layout {
 	[super layout];
-	
+
 	self.hoverBgLayer.frame = self.layer.bounds;
-	
-	$(self.iconImageView).sizeToFit.y(_insets.top);
-	
+
+	//注意：这里的定位只允许使用 self.$width（纯行宽），不能用 self.$maxX —— 后者带 frame.origin
+	//（行在弹窗容器里的位置，可能是任意值，比如列表曾把它整体居中移到负坐标），拿它做子控件
+	//右对齐等于把两个坐标系相减，控件会整体错位几百 pt。icon 也必须显式设 x：groupHorAlign
+	//之类的前次布局会污染 icon.x，下轮 title.x = icon.$maxX + 6 会基于污染值继续漂移。
+	$(self.iconImageView).sizeToFit.x(_insets.left).y(_insets.top);
+
 	$(self.titleLabel).sizeToFit;
 	$(self.subtitleLabel).sizeToFit.y(self.titleLabel.$maxY + 2);
 	$(self.titleLabel, self.subtitleLabel).x(self.iconImageView.$maxX + _iconMarginRight).groupMidY(self.iconImageView.$midY);
-	
-	$(self.unpairControl).sizeToFit.maxX(self.$maxX - _insets.right - 10).midY(self.subtitleLabel.$midY);
+
+	$(self.unpairControl).sizeToFit.maxX(self.$width - _insets.right - 10).midY(self.subtitleLabel.$midY);
 	$(self.stateLabel).sizeToFit.maxX(self.unpairControl.hidden ? self.unpairControl.$maxX : self.unpairControl.$x - 6).midY(self.subtitleLabel.$midY);
-	
-	$(self.iconImageView, self.titleLabel, self.subtitleLabel).groupHorAlign.offsetX(-2);
 }
 
 - (NSSize)sizeThatFits:(NSSize)limitedSize {
