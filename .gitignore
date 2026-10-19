@@ -3,6 +3,7 @@ Build/
 Lookin.xcodeproj/xcuserdata
 Lookin.xcworkspace/xcuserdata
 .DS_Store
+default.profraw
 DerivedData/
 Gemfile
 Gemfile.lock
