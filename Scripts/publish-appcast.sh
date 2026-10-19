@@ -93,7 +93,7 @@ for ZIP_PATH in "${ZIPS[@]}"; do
   NOTES_LINK=""
   if RELEASE_BODY="$(gh release view "${APP_VERSION}" --repo "${GH_REPO}" --json body -q '.body' 2>/dev/null)" && [[ -n "${RELEASE_BODY}" ]]; then
     if gh api markdown -f text="${RELEASE_BODY}" -f mode=gfm \
-        --repo "${GH_REPO}" > "${NOTES_DIR}/${APP_VERSION}.html" 2>/dev/null; then
+        > "${NOTES_DIR}/${APP_VERSION}.html" 2>/dev/null; then
       NOTES_LINK="<sparkle:releaseNotesLink>${PAGES_URL}/release/notes/${APP_VERSION}.html</sparkle:releaseNotesLink>"
     fi
   fi
