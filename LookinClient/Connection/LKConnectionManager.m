@@ -410,11 +410,11 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
                     [subscriber sendCompleted];
                 }];
             }
-            
+
         } fail:^(NSError *error) {
             // ping 失败了
             [subscriber sendError:error];
-            
+
         } completion:nil];
         return nil;
     }];
@@ -881,18 +881,28 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
 
 - (void)ioFrameChannel:(Lookin_PTChannel*)channel didEndWithError:(NSError*)error {
     // iOS 客户端断开
+    __block BOOL wasConnected = NO;
     [self.allSimulatorPorts enumerateObjectsUsingBlock:^(LKSimulatorConnectionPort * _Nonnull port, NSUInteger idx, BOOL * _Nonnull stop) {
         if (port.connectedChannel == channel) {
             port.connectedChannel = nil;
+            wasConnected = YES;
         }
     }];
     [self.allUSBPorts enumerateObjectsUsingBlock:^(LKUSBConnectionPort * _Nonnull port, NSUInteger idx, BOOL * _Nonnull stop) {
         if (port.connectedChannel == channel) {
             port.connectedChannel = nil;
+            wasConnected = YES;
         }
     }];
+    if (!wasConnected) {
+        // USB 端口被拒时 usbmux 的 onEnd 也会走到这里，但这种通道从未连上、任何业务都没持有它，
+        // 不算“断开”。若照常广播，启动页会在手机 App 不在前台（所有 USB 端口被拒）时陷入
+        // “fetch → 端口被拒 → didEnd → 立即 refetch” 的死循环，主线程被打满、进度条与缩略图全部卡死
+        [channel close];
+        return;
+    }
     [self.channelWillEnd sendNext:channel];
-    
+
     [channel close];
 }
 
