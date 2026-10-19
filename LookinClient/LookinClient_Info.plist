@@ -54,9 +54,9 @@
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
 	<key>SUFeedURL</key>
-	<string>https://lookin.work/release/appcast.xml</string>
+	<string>https://xyhuangjia.github.io/Lookin/release/appcast.xml</string>
 	<key>SUPublicEDKey</key>
-	<string>peTjh9x+Ph3tOhWbY5iqzO2SVkdbMRtBJiYbtLlhatM=</string>
+	<string>jizWfaTgaRBzW7kUDBdqb4x+hyS/uzoIfD6tf06Ltk0=</string>
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>
