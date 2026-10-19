@@ -31,6 +31,11 @@ GH_REPO="${GH_REPO:-xyhuangjia/Lookin}"
 PAGES_URL="${PAGES_URL:-https://xyhuangjia.github.io/Lookin}"
 FEED_URL="${PAGES_URL}/release/appcast.xml"
 
+# EdDSA 私钥：优先用仓库外的密钥文件（LookinApp 目录，避免依赖某台机器的钥匙串），
+# 找不到则回退本机钥匙串
+KEY_FILE="${SPARKLE_ED_KEY_FILE:-${ROOT_DIR}/../sparkle-ed25519.key}"
+[[ -f "${KEY_FILE}" ]] || KEY_FILE=""
+
 if [[ $# -gt 0 ]]; then
   ZIPS=("$@")
 else
@@ -70,7 +75,11 @@ for ZIP_PATH in "${ZIPS[@]}"; do
   fi
 
   echo "==> 签名 ${ZIP_PATH##*/} (${APP_VERSION}, build ${BUILD_VERSION})"
-  SIGN_OUT="$("${SIGN_UPDATE}" "${ZIP_PATH}")"
+  if [[ -n "${KEY_FILE}" ]]; then
+    SIGN_OUT="$("${SIGN_UPDATE}" "${ZIP_PATH}" "${KEY_FILE}")"
+  else
+    SIGN_OUT="$("${SIGN_UPDATE}" "${ZIP_PATH}")"
+  fi
   ED_SIG="$(sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p' <<<"${SIGN_OUT}")"
   LENGTH="$(sed -n 's/.*length="\([^"]*\)".*/\1/p' <<<"${SIGN_OUT}")"
   [[ -n "${ED_SIG}" && -n "${LENGTH}" ]] || { echo "错误: 解析 sign_update 输出失败: ${SIGN_OUT}" >&2; exit 1; }
