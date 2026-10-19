@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Lookin 更新</title>
+    <link>https://xyhuangjia.github.io/Lookin</link>
+    <description>Lookin macOS 客户端更新</description>
+    <language>zh-cn</language>
+      <item>
+        <title>Lookin 1.0.10</title>
+        
+        <pubDate>Mon, 19 Oct 2026 17:29:12 +0800</pubDate>
+        <enclosure url="https://github.com/xyhuangjia/Lookin/releases/download/1.0.10/Lookin-1.0.10.zip"
+                   sparkle:version="20261019"
+                   sparkle:shortVersionString="1.0.10"
+                   length="8568757"
+                   type="application/octet-stream"
+                   sparkle:edSignature="mJ3E32+0Vu2pA0zfsXpgNUmp0xf5bij4VuBVIP6CbJ6Fy+ZXeKGAyjGmSBARUG+8nyKmQo3XZ5ObgjTCXwIkAg==" />
+      </item>
+  </channel>
+</rss>
+
