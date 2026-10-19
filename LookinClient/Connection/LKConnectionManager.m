@@ -80,6 +80,9 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
 
 @property(nonatomic, strong) Lookin_PTChannel *connectedChannel;
 
+/// 本次 USB 插入会话内是否已提示过「连接被拒」，避免每轮轮询刷屏
+@property(nonatomic, assign) BOOL hasLoggedConnectRefusal;
+
 @end
 
 @implementation LKUSBConnectionPort
@@ -146,7 +149,20 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
 }
 
 - (NSArray *)getAllWirelessDevices {
-	return [self.connectWirelessDevices.copy arrayByAddingObjectsFromArray:self.notConnectWirelessDevices.copy];
+	// connect 与 notConnect 在历史竞态下可能短暂出现同设备双条目，展示前统一按 isEqual:（uuid+appId）去重；
+	// 该方法由主线程 UI 调用，而设备增删均已收敛到主线程，读写同域安全
+	NSMutableArray *devices = [NSMutableArray array];
+	for (ECOChannelDeviceInfo *device in [self.connectWirelessDevices copy]) {
+		if (![devices containsObject:device]) {
+			[devices addObject:device];
+		}
+	}
+	for (ECOChannelDeviceInfo *device in [self.notConnectWirelessDevices copy]) {
+		if (![devices containsObject:device]) {
+			[devices addObject:device];
+		}
+	}
+	return devices.copy;
 }
 
 - (LKChannelTransport)transportOfChannel:(id)channel {
@@ -270,6 +286,11 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
     }
     NSArray<RACSignal *> *tries = [self.allUSBPorts lookin_map:^id(NSUInteger idx, LKUSBConnectionPort *port) {
         return [[self _connectToUSBPort:port] catch:^RACSignal * _Nonnull(NSError * _Nonnull error) {
+            // 「连接被拒」已在 _connectToUSBPort 内按会话记录；这里补记其余错误（含 RAC 超时：
+            // 锁屏/未信任的设备会让 usbmux 连接回调永不触发，只能靠 5 秒超时兑底）
+            if (!(error.domain == Lookin_PTUSBHubErrorDomain && error.code == PTUSBHubErrorConnectionRefused)) {
+                NSLog(@"Lookin - USB 端口 %@ 连接未完成（超时或内部错误）：%@, deviceID:%@", @(port.portNumber), error, port.deviceID);
+            }
             return [RACSignal return:nil];
         }];
     }];
@@ -296,14 +317,20 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
         [channel connectToPort:port.portNumber overUSBHub:Lookin_PTUSBHub.sharedHub deviceID:port.deviceID callback:^(NSError *error) {
             if (error) {
                 if (error.domain == Lookin_PTUSBHubErrorDomain && error.code == PTUSBHubErrorConnectionRefused) {
-                    // error
+                    // 设备未监听该端口（正常情况：App 只占用 5 个端口中的 1 个，其余端口每轮都会被拒）。
+                    // 按 USB 插入会话只提示一次；若所有端口均被拒，说明手机端 App 未运行或 Peertalk 监听已丢失
+                    if (!port.hasLoggedConnectRefusal) {
+                        port.hasLoggedConnectRefusal = YES;
+                        NSLog(@"Lookin - USB 端口 %@ 连接被拒（设备未监听）。若所有端口均被拒，请检查手机端 App 是否在前台运行，deviceID:%@", @(port.portNumber), port.deviceID);
+                    }
                 } else {
-                    // error
+                    // 意外错误在 _tryToConnectAllUSBDevices 的 catch 中统一记录
                 }
                 [channel close];
                 [subscriber sendError:error];
             } else {
                 // succ
+                NSLog(@"Lookin - USB 端口 %@ 连接成功, deviceID:%@", @(port.portNumber), port.deviceID);
                 port.connectedChannel = channel;
                 [subscriber sendNext:channel];
                 [subscriber sendCompleted];
@@ -317,12 +344,25 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
 }
 
 - (RACSignal *)_tryToConnectToAllWirelessDevice {
+	void (^work)(void) = ^{
+		NSArray *devices = [self.connectWirelessDevices lookin_filter:^BOOL(ECOChannelDeviceInfo *obj) {
+			return obj.isConnected;
+		}];
+		if (devices.count != self.connectWirelessDevices.count) {
+			self.connectWirelessDevices = [NSMutableArray arrayWithArray:devices];
+		}
+	};
+	// 可能从 RAC 后台 scheduler 调入，而设备列表的增删均收敛在主线程，这里同步切到主线程读写，
+	// 避免与 deviceBlock / authStateChangedBlock 并发改写 NSMutableArray。主线程等待链上不会同步等
+	// 待本方法，不会死锁；主线程直接调用时原地执行
+	if (NSThread.isMainThread) {
+		work();
+	} else {
+		dispatch_sync(dispatch_get_main_queue(), work);
+	}
 	NSArray *devices = [self.connectWirelessDevices lookin_filter:^BOOL(ECOChannelDeviceInfo *obj) {
 		return obj.isConnected;
 	}];
-	if (devices.count != self.connectWirelessDevices.count) {
-		self.connectWirelessDevices = [NSMutableArray arrayWithArray:devices];
-	}
 	return [RACSignal return:devices];
 }
 
@@ -425,6 +465,14 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
 	Lookin_PTChannel *ptChannel;
 	if ([channel isKindOfClass:ECOChannelDeviceInfo.class]) {
 		device = (ECOChannelDeviceInfo *)channel;
+		if (!NSThread.isMainThread) {
+			// 无线通道的请求收发统一收敛到主线程：activeRequests 等可变状态只在主线程读写，
+			// 与 receivedBlock / 超时派发（主队列）保持同一执行域，消除并发回调队列带来的竞态
+			dispatch_async(dispatch_get_main_queue(), ^{
+				[self _requestWithType:requestType channel:channel data:data timeoutInterval:timeoutInterval succ:succBlock fail:failBlock completion:completionBlock];
+			});
+			return;
+		}
 	}
 	if ([channel isKindOfClass:Lookin_PTChannel.class]) {
 		ptChannel = (Lookin_PTChannel *)channel;
@@ -546,61 +594,69 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
 		self.wirelessChannel = ECOChannelManager.new;
 	}
 	@weakify(self);
-	// 接收到数据回调（每个数据包都会进来，不要在这里 NSLog，会刷屏）
+	// 接收到数据回调（每个数据包都会进来，不要在这里 NSLog，会刷屏）。
+	// 统一派发到主线程：device.activeRequests 与设备列表的读写全部收敛在主线程，
+	// 与 deviceBlock / authStateChangedBlock / 超时派发（主队列）同一执行域
 	self.wirelessChannel.receivedBlock = ^(ECOChannelDeviceInfo *device, NSData *data, NSDictionary *extraInfo) {
-		NSNumber *tag = extraInfo[@"tag"];
-		NSNumber *type = extraInfo[@"type"];
-		LKConnectionRequest *activeRequest = [device.activeRequests lookin_firstFiltered:^BOOL(LKConnectionRequest *obj) {
-			return [@(obj.type) isEqualToNumber:type] && [@(obj.tag) isEqualToNumber:tag];
-		}];
-		if (!activeRequest) {
-			// 也许在 shouldAcceptFrameOfType 和 didReceiveFrame 两个时机之间，该 request 因为超时而被销毁了？有点玄学但确实偶尔会走到这里。
-			return;
-		}
-		[self_weak_ _didReceiveDataWithChannel:device data:data activeRequest:activeRequest];
-	};
-	// 设备连接变更
-	self.wirelessChannel.deviceBlock = ^(ECOChannelDeviceInfo *device, BOOL isConnected) {
-		NSLog(@"🚀 Lookin deviceBlock device:%@", device);
-		if (isConnected && ![self_weak_.connectWirelessDevices containsObject:device]) {
-			if (!device.authorizedType) {
-				// 未配对设备连入：加入待配对列表并发起蓝牙式配对（UI 会自动弹出设备列表展示配对码）
-				if (![self_weak_.notConnectWirelessDevices containsObject:device]) {
-					[self_weak_.notConnectWirelessDevices addObject:device];
-				}
-				[self_weak_ _beginPairingWithDevice:device];
-			} else {
-				RACSignal *signal = [self_weak_ _connectToWirelessDevice:device];
-				[signal subscribeNext:^(ECOChannelDeviceInfo * _Nullable x) {
-					NSLog(@"%@", x);
-				}];
-			}
-		} else if (!isConnected) {
-			[self_weak_.notConnectWirelessDevices removeObject:device];
-			[self_weak_.connectWirelessDevices removeObject:device];
-			[self_weak_.channelWillEnd sendNext:device];
-		}
-	};
-	// 授权状态变更回调
-	self.wirelessChannel.authStateChangedBlock = ^(ECOChannelDeviceInfo *device, ECOAuthorizeResponseType authState) {
-		NSLog(@"🚀 Lookin authStateChangedBlock device:%@", device);
-		void(^block)(ECOChannelDeviceInfo *device, ECOAuthorizeResponseType authState) = self_weak_.authStateChangedBlocks[@(device.hash)];
-		if (block) {
-			block(device, authState);
-		} else if (authState && ![self_weak_.connectWirelessDevices containsObject:device]) {
-			// 手机上确认配对后：直接自动连接（配对的意义就是免二次交互）
-			[self_weak_.pairingCodes removeObjectForKey:@(device.hash)];
-			[[self_weak_ _connectToWirelessDevice:device] subscribeNext:^(ECOChannelDeviceInfo * _Nullable x) {
-				NSLog(@"🚀 Lookin auto connect paired device success. device:%@", x);
+		dispatch_async(dispatch_get_main_queue(), ^{
+			NSNumber *tag = extraInfo[@"tag"];
+			NSNumber *type = extraInfo[@"type"];
+			LKConnectionRequest *activeRequest = [device.activeRequests lookin_firstFiltered:^BOOL(LKConnectionRequest *obj) {
+				return [@(obj.type) isEqualToNumber:type] && [@(obj.tag) isEqualToNumber:tag];
 			}];
-		}
-		if (!authState) {
-			[self_weak_.pairingCodes removeObjectForKey:@(device.hash)];
-			if ([self_weak_.connectWirelessDevices containsObject:device]) {
+			if (!activeRequest) {
+				// 也许在 shouldAcceptFrameOfType 和 didReceiveFrame 两个时机之间，该 request 因为超时而被销毁了？有点玄学但确实偶尔会走到这里。
+				return;
+			}
+			[self_weak_ _didReceiveDataWithChannel:device data:data activeRequest:activeRequest];
+		});
+	};
+	// 设备连接变更：同样收敛到主线程（列表增删与 UI 弹层都由这些回调驱动）
+	self.wirelessChannel.deviceBlock = ^(ECOChannelDeviceInfo *device, BOOL isConnected) {
+		dispatch_async(dispatch_get_main_queue(), ^{
+			NSLog(@"🚀 Lookin deviceBlock device:%@ connected:%@", device, @(isConnected));
+			if (isConnected && ![self_weak_.connectWirelessDevices containsObject:device]) {
+				if (!device.authorizedType) {
+					// 未配对设备连入：加入待配对列表并发起蓝牙式配对（UI 会自动弹出设备列表展示配对码）
+					if (![self_weak_.notConnectWirelessDevices containsObject:device]) {
+						[self_weak_.notConnectWirelessDevices addObject:device];
+					}
+					[self_weak_ _beginPairingWithDevice:device];
+				} else {
+					RACSignal *signal = [self_weak_ _connectToWirelessDevice:device];
+					[signal subscribeNext:^(ECOChannelDeviceInfo * _Nullable x) {
+						NSLog(@"%@", x);
+					}];
+				}
+			} else if (!isConnected) {
+				[self_weak_.notConnectWirelessDevices removeObject:device];
 				[self_weak_.connectWirelessDevices removeObject:device];
 				[self_weak_.channelWillEnd sendNext:device];
 			}
-		}
+		});
+	};
+	// 授权状态变更回调
+	self.wirelessChannel.authStateChangedBlock = ^(ECOChannelDeviceInfo *device, ECOAuthorizeResponseType authState) {
+		dispatch_async(dispatch_get_main_queue(), ^{
+			NSLog(@"🚀 Lookin authStateChangedBlock device:%@", device);
+			void(^block)(ECOChannelDeviceInfo *device, ECOAuthorizeResponseType authState) = self_weak_.authStateChangedBlocks[@(device.hash)];
+			if (block) {
+				block(device, authState);
+			} else if (authState && ![self_weak_.connectWirelessDevices containsObject:device]) {
+				// 手机上确认配对后：直接自动连接（配对的意义就是免二次交互）
+				[self_weak_.pairingCodes removeObjectForKey:@(device.hash)];
+				[[self_weak_ _connectToWirelessDevice:device] subscribeNext:^(ECOChannelDeviceInfo * _Nullable x) {
+					NSLog(@"🚀 Lookin auto connect paired device success. device:%@", x);
+				}];
+			}
+			if (!authState) {
+				[self_weak_.pairingCodes removeObjectForKey:@(device.hash)];
+				if ([self_weak_.connectWirelessDevices containsObject:device]) {
+					[self_weak_.connectWirelessDevices removeObject:device];
+					[self_weak_.channelWillEnd sendNext:device];
+				}
+			}
+		});
 	};
 	// 请求授权状态认证回调
 	self.wirelessChannel.requestAuthBlock = ^(ECOChannelDeviceInfo *device, ECOAuthorizeResponseType authState) {
