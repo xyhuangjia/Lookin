@@ -82,7 +82,7 @@ final class LKMCPService: NSObject {
             "writesEnabled": manager.mcpAllowWrites,
             "invokeEnabled": manager.mcpAllowInvoke,
             "invokeAllowlistCount": (manager.mcpInvokeAllowlist() ?? []).count,
-            "protocolVersions": ["2026-07-28", "2025-11-25", "2025-06-18"]
+            "protocolVersions": [LKMCPProtocol.modernVersion] + LKMCPProtocol.legacyVersions
         ]
         if let app = activeTarget {
             dict["target"] = LKInspectionJSON.appInfoJSON(app.appInfo)

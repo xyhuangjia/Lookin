@@ -41,3 +41,20 @@ post -H "MCP-Protocol-Version: 2026-07-28" -H "Mcp-Method: tools/call" -H "Mcp-N
 
 echo "== legacy tools/call lookin_list_targets =="
 post -d '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"lookin_list_targets","arguments":{}}}'
+
+echo "== legacy initialize 2024-11-05 (最老协议版本) =="
+post -d '{"jsonrpc":"2.0","id":7,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"mcp-smoke","version":"1.0"}}}' \
+    | grep -o '"protocolVersion":"[0-9-]*"'
+
+echo "== 路径带查询串 =="
+curl -sS -o /dev/null -w "HTTP %{http_code}\n" -X POST "${BASE}?transport=http" \
+    -H "Content-Type: application/json" -H "$ACCEPT" \
+    -d '{"jsonrpc":"2.0","id":8,"method":"tools/list","params":{}}'
+
+echo "== JSON-RPC batch =="
+curl -sS -X POST "$BASE" -H "Content-Type: application/json" -H "$ACCEPT" \
+    -d '[{"jsonrpc":"2.0","id":9,"method":"ping"},{"jsonrpc":"2.0","method":"notifications/initialized"}]' | head -c 200
+echo
+
+echo "== GET 返回 405 + Allow: POST =="
+curl -sS -o /dev/null -w "HTTP %{http_code}\n" -X GET "$BASE" -H "$ACCEPT"

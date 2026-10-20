@@ -97,7 +97,9 @@ final class LKMCPRouter {
         if modern {
             result["resultType"] = "complete"
             result["ttlMs"] = 60000
-            result["cacheScope"] = "server"
+            // Claude Code 2.1.303 校验 cacheScope 只接受 "public"|"private"，
+            // "server" 会导致整个 tools/list 被客户端判为非法。
+            result["cacheScope"] = "private"
         }
         return successResponse(id: id, result: result, modern: modern)
     }

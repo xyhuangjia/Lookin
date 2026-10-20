@@ -26,11 +26,18 @@ final class LKMCPRequestPolicyTests: XCTestCase {
     func testAllowsLoopbackHosts() {
         XCTAssertTrue(LKMCPRequestPolicy.allows(origin: nil, host: "127.0.0.1:47200", port: port))
         XCTAssertTrue(LKMCPRequestPolicy.allows(origin: nil, host: "localhost:47200", port: port))
+        XCTAssertTrue(LKMCPRequestPolicy.allows(origin: nil, host: "LOCALHOST:47200", port: port))
+        XCTAssertTrue(LKMCPRequestPolicy.allows(origin: nil, host: "[::1]:47200", port: port))
+        XCTAssertTrue(LKMCPRequestPolicy.allows(origin: nil, host: "127.0.0.1", port: port))
+        XCTAssertTrue(LKMCPRequestPolicy.allows(origin: nil, host: "localhost", port: port))
     }
 
     func testRejectsNonLoopbackHost() {
         XCTAssertFalse(LKMCPRequestPolicy.allows(origin: nil, host: "lookin.example:47200", port: port))
         XCTAssertFalse(LKMCPRequestPolicy.allows(origin: nil, host: "127.0.0.1:47190", port: port))
+        XCTAssertFalse(LKMCPRequestPolicy.allows(origin: nil, host: "192.168.1.2:47200", port: port))
+        XCTAssertFalse(LKMCPRequestPolicy.allows(origin: nil, host: "[::1]:47190", port: port))
+        XCTAssertFalse(LKMCPRequestPolicy.allows(origin: nil, host: "evil.example", port: port))
     }
 
     func testRejectsMismatchedOriginEvenWithValidHost() {

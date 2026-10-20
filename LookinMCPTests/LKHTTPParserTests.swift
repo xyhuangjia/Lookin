@@ -108,4 +108,42 @@ final class LKHTTPParserTests: XCTestCase {
         XCTAssertEqual(LKHTTPParser.reason(for: 413), "Payload Too Large")
         XCTAssertEqual(LKHTTPParser.reason(for: 999), "Error")
     }
+
+    // MARK: - Path normalization
+
+    func testNormalizedPathStripsQueryAndFragment() {
+        XCTAssertEqual(LKHTTPParser.normalizedPath("/mcp?transport=http"), "/mcp")
+        XCTAssertEqual(LKHTTPParser.normalizedPath("/mcp#fragment"), "/mcp")
+        XCTAssertEqual(LKHTTPParser.normalizedPath("/mcp?a=1&b=2"), "/mcp")
+        XCTAssertEqual(LKHTTPParser.normalizedPath("/mcp"), "/mcp")
+        XCTAssertEqual(LKHTTPParser.normalizedPath("/"), "/")
+    }
+
+    // MARK: - Payload parsing
+
+    func testPayloadParsesSingleMessage() {
+        let payload = LKMCPPayload.parse(Data(#"{"jsonrpc":"2.0","id":1,"method":"ping"}"#.utf8))
+        guard case .single(let message) = payload else {
+            return XCTFail("Expected a single message")
+        }
+        XCTAssertEqual(message["method"] as? String, "ping")
+    }
+
+    func testPayloadParsesBatchArray() {
+        let payload = LKMCPPayload.parse(
+            Data(#"[{"jsonrpc":"2.0","id":1,"method":"ping"},{"jsonrpc":"2.0","method":"notifications/initialized"}]"#.utf8))
+        guard case .batch(let messages) = payload else {
+            return XCTFail("Expected a batch")
+        }
+        XCTAssertEqual(messages.count, 2)
+    }
+
+    func testPayloadRejectsGarbageAndEmptyBatch() {
+        XCTAssertNil(LKMCPPayload.parse(Data("not json".utf8)))
+        XCTAssertNil(LKMCPPayload.parse(Data(#""scalar""#.utf8)))
+        guard case .batch(let empty) = LKMCPPayload.parse(Data("[]".utf8)) else {
+            return XCTFail("Expected an empty batch")
+        }
+        XCTAssertEqual(empty.count, 0)
+    }
 }

@@ -80,6 +80,16 @@ final class LKMCPRouterTests: XCTestCase {
         XCTAssertEqual(try result(response)["protocolVersion"] as? String, "2025-11-25")
     }
 
+    func testInitializeSupportsOldestSpecVersion() async throws {
+        // 初版协议（2024-11-05）仍被部分旧客户端使用，握手必须原样接受。
+        let response = await makeRouter().handle(
+            ["jsonrpc": "2.0", "id": 1, "method": "initialize",
+             "params": ["protocolVersion": "2024-11-05"]],
+            headers: [:]
+        )
+        XCTAssertEqual(try result(response)["protocolVersion"] as? String, "2024-11-05")
+    }
+
     func testPingReturnsEmptyResult() async throws {
         let response = await makeRouter().handle(
             ["jsonrpc": "2.0", "id": 2, "method": "ping"],
@@ -110,7 +120,7 @@ final class LKMCPRouterTests: XCTestCase {
         let result = try result(response)
         XCTAssertEqual(result["resultType"] as? String, "complete")
         XCTAssertEqual(result["ttlMs"] as? Int, 60000)
-        XCTAssertEqual(result["cacheScope"] as? String, "server")
+        XCTAssertEqual(result["cacheScope"] as? String, "private")
         XCTAssertEqual((result["tools"] as? [[String: Any]])?.count, 1)
     }
 

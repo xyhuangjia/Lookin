@@ -92,6 +92,33 @@ enum LKHTTPParser {
         default: return "Error"
         }
     }
+
+    /// 去掉查询串与 fragment。部分客户端会在路径后追加参数（如 `/mcp?transport=http`），
+    /// 路由匹配前先归一化，避免被 404。
+    static func normalizedPath(_ path: String) -> String {
+        let cut = path.firstIndex(where: { $0 == "?" || $0 == "#" }) ?? path.endIndex
+        return String(path[..<cut])
+    }
+}
+
+// MARK: - Request payload
+
+enum LKMCPPayload {
+    case single([String: Any])
+    case batch([[String: Any]])
+
+    /// 解析 POST body：单个 JSON-RPC 消息，或 2025-06-18 之前客户端可能使用的 batch 数组。
+    /// 返回 nil 表示 body 不是合法的 JSON-RPC 载荷。
+    static func parse(_ data: Data) -> LKMCPPayload? {
+        guard let json = try? JSONSerialization.jsonObject(with: data) else { return nil }
+        if let message = json as? [String: Any] {
+            return .single(message)
+        }
+        if let messages = json as? [[String: Any]] {
+            return .batch(messages)
+        }
+        return nil
+    }
 }
 
 // MARK: - Request policy
@@ -99,16 +126,26 @@ enum LKHTTPParser {
 enum LKMCPRequestPolicy {
 
     /// 仅允许 loopback。缺少 Origin / Host 视为本地客户端（curl、测试脚本）。
+    /// Host / Origin 大小写不敏感；IPv6 loopback 与省略端口的写法也放行——
+    /// 监听本身已绑定 127.0.0.1，这里只需挡掉明确的非本机来源。
     static func allows(origin: String?, host: String?, port: UInt16) -> Bool {
         if let origin = origin, !origin.isEmpty {
-            let allowed = ["http://127.0.0.1:\(port)", "http://localhost:\(port)"]
-            guard allowed.contains(origin) else { return false }
+            let lowered = origin.lowercased()
+            let allowed = ["http://127.0.0.1:\(port)",
+                           "http://localhost:\(port)",
+                           "http://[::1]:\(port)"]
+            guard allowed.contains(lowered) else { return false }
         }
         if let host = host, !host.isEmpty {
-            let allowed = ["127.0.0.1:\(port)", "localhost:\(port)"]
-            guard allowed.contains(host) else { return false }
+            guard isLoopbackHost(host, port: port) else { return false }
         }
         return true
+    }
+
+    static func isLoopbackHost(_ host: String, port: UInt16) -> Bool {
+        let lowered = host.lowercased()
+        let names = ["127.0.0.1", "localhost", "[::1]", "::1"]
+        return names.contains { lowered == $0 || lowered == "\($0):\(port)" }
     }
 }
 
@@ -117,7 +154,7 @@ enum LKMCPRequestPolicy {
 enum LKMCPProtocol {
 
     static let modernVersion = "2026-07-28"
-    static let legacyVersions = ["2025-11-25", "2025-06-18", "2025-03-26"]
+    static let legacyVersions = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"]
     static let defaultLegacyVersion = "2025-11-25"
 
     /// 客户端请求的版本受支持则原样返回，否则回落到默认 legacy 版本。

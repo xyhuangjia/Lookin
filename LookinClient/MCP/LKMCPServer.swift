@@ -140,6 +140,9 @@ final class LKMCPServer: NSObject {
                 port: NWEndpoint.Port(rawValue: port)!
             )
             let newListener = try NWListener(using: parameters)
+            // 创建后立刻持有：否则 start() 到 .ready 之间发生 stopLocked 会取消不到
+            // 这个监听器，留下已绑端口但状态为 0 的错位。
+            self.listener = newListener
 
             newListener.newConnectionHandler = { [weak self] connection in
                 self?.accept(connection)
@@ -148,7 +151,6 @@ final class LKMCPServer: NSObject {
                 guard let self = self, let newListener = newListener else { return }
                 switch state {
                 case .ready:
-                    self.listener = newListener
                     let bound = newListener.port?.rawValue ?? port
                     self.setState(running: true, port: bound)
                     self.writeHandshakeFile()
@@ -250,41 +252,85 @@ final class LKMCPServer: NSObject {
 
     // MARK: - HTTP handling
 
+    /// Host / Origin 校验用的端口取自连接自身的本地端点，
+    /// 不依赖共享的 _actualPort——它在启动早期可能尚未就绪或刚被 restart 清零。
+    private func localPort(of connection: NWConnection) -> UInt16 {
+        if case .hostPort(_, let port)? = connection.currentPath?.localEndpoint {
+            return port.rawValue
+        }
+        return actualPort
+    }
+
     private func handle(_ request: LKHTTPRequest, on connection: NWConnection) {
         guard request.method == "POST" else {
-            send(status: 405, body: statusBody(405), on: connection)
+            // Streamable HTTP 允许 server 不支持 GET SSE / DELETE 会话终结，返回 405 即可。
+            send(status: 405, body: statusBody(405), on: connection, allow: "POST")
             return
         }
-        guard request.path == "/mcp" else {
+        guard LKHTTPParser.normalizedPath(request.path) == "/mcp" else {
             send(status: 404, body: statusBody(404), on: connection)
             return
         }
         guard LKMCPRequestPolicy.allows(origin: request.headers["origin"],
                                         host: request.headers["host"],
-                                        port: actualPort) else {
+                                        port: localPort(of: connection)) else {
             send(status: 403, body: statusBody(403), on: connection)
             return
         }
-        guard let message = try? JSONSerialization.jsonObject(with: request.body) as? [String: Any] else {
+        guard let payload = LKMCPPayload.parse(request.body) else {
             send(status: 400, body: statusBody(400), on: connection)
+            return
+        }
+        if case .batch(let messages) = payload, messages.isEmpty {
+            // JSON-RPC 规定空 batch 是非法请求，返回单个 -32600。
+            let body = (try? JSONSerialization.data(
+                withJSONObject: ["jsonrpc": "2.0", "id": NSNull(),
+                                 "error": ["code": -32600, "message": "Invalid Request"]])) ?? Data()
+            send(status: 200, body: body, on: connection)
             return
         }
 
         Task { [weak self] in
             guard let self = self else { return }
-            let response = await LKMCPRouter.shared.handle(message, headers: request.headers)
-            if let response = response {
-                self.send(status: response.status, body: response.body, on: connection)
-            } else {
-                self.send(status: 202, body: nil, on: connection)
+            switch payload {
+            case .single(let message):
+                let response = await LKMCPRouter.shared.handle(message, headers: request.headers)
+                if let response = response {
+                    self.send(status: response.status, body: response.body, on: connection)
+                } else {
+                    self.send(status: 202, body: nil, on: connection)
+                }
+            case .batch(let messages):
+                // 逐条处理，只收集有响应的条目（通知不产生响应），拼成 JSON 数组返回。
+                var bodies: [Data] = []
+                for message in messages {
+                    if let response = await LKMCPRouter.shared.handle(message, headers: request.headers),
+                       let body = response.body {
+                        bodies.append(body)
+                    }
+                }
+                if bodies.isEmpty {
+                    self.send(status: 202, body: nil, on: connection)
+                } else {
+                    var array = Data("[".utf8)
+                    for (index, body) in bodies.enumerated() {
+                        if index > 0 { array.append(Data(",".utf8)) }
+                        array.append(body)
+                    }
+                    array.append(Data("]".utf8))
+                    self.send(status: 200, body: array, on: connection)
+                }
             }
         }
     }
 
-    private func send(status: Int, body: Data?, on connection: NWConnection) {
+    private func send(status: Int, body: Data?, on connection: NWConnection, allow: String? = nil) {
         var header = "HTTP/1.1 \(status) \(LKHTTPParser.reason(for: status))\r\n"
         header += "Content-Type: application/json\r\n"
         header += "Content-Length: \(body?.count ?? 0)\r\n"
+        if let allow = allow {
+            header += "Allow: \(allow)\r\n"
+        }
         header += "Connection: close\r\n"
         header += "Cache-Control: no-store\r\n"
         header += "\r\n"
@@ -323,7 +369,7 @@ final class LKMCPServer: NSObject {
             "port": currentPort,
             "pid": ProcessInfo.processInfo.processIdentifier,
             "serverVersion": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "",
-            "protocolVersions": ["2026-07-28", "2025-11-25", "2025-06-18"],
+            "protocolVersions": [LKMCPProtocol.modernVersion] + LKMCPProtocol.legacyVersions,
             "writesEnabled": manager.mcpAllowWrites,
             "invokeEnabled": manager.mcpAllowInvoke
         ]
@@ -365,13 +411,13 @@ final class LKMCPServer: NSObject {
                     let menu = NSMenu()
                     menu.addItem(NSMenuItem(title: "MCP: \(self.endpointURL)", action: nil, keyEquivalent: ""))
 
-                    let copyItem = NSMenuItem(title: "Copy MCP config",
+                    let copyItem = NSMenuItem(title: NSLocalizedString("Copy MCP Config", comment: ""),
                                               action: #selector(self.copyMCPConfig),
                                               keyEquivalent: "")
                     copyItem.target = self
                     menu.addItem(copyItem)
 
-                    let settingsItem = NSMenuItem(title: "MCP Server Settings…",
+                    let settingsItem = NSMenuItem(title: NSLocalizedString("MCP Server Settings…", comment: ""),
                                                   action: #selector(self.openSettings),
                                                   keyEquivalent: "")
                     settingsItem.target = self
@@ -379,7 +425,7 @@ final class LKMCPServer: NSObject {
 
                     menu.addItem(.separator())
 
-                    let quitItem = NSMenuItem(title: "Quit Lookin",
+                    let quitItem = NSMenuItem(title: NSLocalizedString("Quit Lookin", comment: ""),
                                               action: #selector(self.quitApp),
                                               keyEquivalent: "q")
                     quitItem.target = self
@@ -394,9 +440,9 @@ final class LKMCPServer: NSObject {
                         first.title = "MCP: \(self.endpointURL)"
                     }
                 } else {
-                    self.statusItem?.button?.title = "Lookin MCP (stopped)"
+                    self.statusItem?.button?.title = NSLocalizedString("Lookin MCP (stopped)", comment: "")
                     if let first = self.statusItem?.menu?.items.first {
-                        first.title = "MCP server is not running — check the port"
+                        first.title = NSLocalizedString("MCP server is not running — check the port", comment: "")
                     }
                 }
             } else if let item = self.statusItem {
@@ -406,18 +452,40 @@ final class LKMCPServer: NSObject {
         }
     }
 
-    @objc private func copyMCPConfig() {
-        let text = """
-        Claude Code:
-          claude mcp add --transport http lookin \(endpointURL)
+    /// 全部常见 Agent 的接入片段，设置窗口与菜单栏共用。
+    /// 标签走本地化；命令与 JSON 本体保持原样（会粘贴进配置文件）。
+    func configText() -> String {
+        let endpoint = endpointURL
+        let claude = NSLocalizedString("Claude Code:", comment: "")
+        let codex = NSLocalizedString("Codex (~/.codex/config.toml):", comment: "")
+        let cursor = NSLocalizedString("Cursor / Windsurf / Trae / Cline (.mcp.json):", comment: "")
+        let gemini = NSLocalizedString("Gemini CLI (~/.gemini/settings.json):", comment: "")
+        let stdio = NSLocalizedString("stdio bridge (for agents that only support stdio):", comment: "")
+        return """
+        \(NSLocalizedString("Lookin MCP endpoint:", comment: "")) \(endpoint)
 
-        Codex (~/.codex/config.toml):
+        \(claude)
+          claude mcp add --transport http lookin \(endpoint)
+
+        \(codex)
           [mcp_servers.lookin]
-          url = "\(endpointURL)"
+          url = "\(endpoint)"
+
+        \(cursor)
+          {"mcpServers":{"lookin":{"type":"http","url":"\(endpoint)"}}}
+
+        \(gemini)
+          {"mcpServers":{"lookin":{"httpUrl":"\(endpoint)"}}}
+
+        \(stdio)
+          npx -y mcp-remote \(endpoint)
         """
+    }
+
+    @objc private func copyMCPConfig() {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        pasteboard.setString(text, forType: .string)
+        pasteboard.setString(configText(), forType: .string)
     }
 
     @objc private func openSettings() {

@@ -88,7 +88,50 @@ codex mcp add lookin --url http://127.0.0.1:47200/mcp
 url = "http://127.0.0.1:47200/mcp"
 ```
 
-设置窗口提供 **Copy Claude Code Command** 与 **Copy Codex Config** 两个按钮，不会自动改写你的配置文件。
+### Cursor / Windsurf / Trae / Cline
+
+写入项目 `.mcp.json` 或全局 `~/.cursor/mcp.json`（Cursor）/ `~/.codeium/windsurf/mcp_config.json`（Windsurf）：
+
+```json
+{
+  "mcpServers": {
+    "lookin": {
+      "url": "http://127.0.0.1:47200/mcp"
+    }
+  }
+}
+```
+
+### Gemini CLI
+
+写入 `~/.gemini/settings.json`：
+
+```json
+{
+  "mcpServers": {
+    "lookin": {
+      "httpUrl": "http://127.0.0.1:47200/mcp"
+    }
+  }
+}
+```
+
+### 只支持 stdio 的 Agent
+
+用 `mcp-remote` 桥接（需要 Node.js）：
+
+```json
+{
+  "mcpServers": {
+    "lookin": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "http://127.0.0.1:47200/mcp"]
+    }
+  }
+}
+```
+
+设置窗口提供 **Copy Claude Code Command** / **Copy Codex Config** / **Copy All Agents**（包含以上全部形态）三个按钮，菜单栏状态项提供 **Copy MCP Config**，均不会自动改写你的配置文件。
 
 ## 协议兼容
 
@@ -97,14 +140,24 @@ server 同时支持两代 Streamable HTTP：
 | 版本 | 握手 | 使用者 |
 |---|---|---|
 | `2026-07-28` | `server/discover`，无状态、仅 POST | Claude Code |
-| `2025-11-25` / `2025-06-18` | `initialize` + `notifications/initialized` | Codex（默认 `2025-06-18`） |
+| `2025-11-25` / `2025-06-18` | `initialize` + `notifications/initialized` | Codex（默认 `2025-06-18`）、Cursor |
+| `2025-03-26` / `2024-11-05` | 同上 | 旧版 SDK 客户端（Windsurf 早期版本、老版 Python/TS SDK） |
+
+已用真实客户端验证过：
+
+- Claude Code 2.1.303（`claude mcp list` 显示 ✔ Connected）
+- Codex CLI 0.163.0（`codex exec` 实际调用 `lookin_get_status` 成功）
+- Cursor CLI 2026.07.23（`cursor-agent mcp list-tools lookin` 列出全部 14 个 tool）
 
 实现要点：
 
-- 仅 `POST /mcp`，GET/DELETE 返回 405；
+- 仅 `POST /mcp`（忽略路径后的查询串），GET/DELETE 返回 405 + `Allow: POST`；
+- 支持 JSON-RPC batch（`2025-06-18` 之前的老 SDK 会发），响应为 JSON 数组，空 batch 返回 `-32600`；
 - 所有 tool 同步返回 `application/json`，v1 不使用 SSE；
 - 无 session id，不依赖 `Mcp-Session-Id`；
-- 现代版本校验 `MCP-Protocol-Version`、`Mcp-Method`、`Mcp-Name`，不匹配返回 400 + `-32020`。
+- Host / Origin 校验接受全部 loopback 写法（`127.0.0.1` / `localhost` / `[::1]`，带端口或不带，大小写不敏感），端口取自连接自身的本地端点；非本机来源返回 403；
+- 现代版本校验 `MCP-Protocol-Version`、`Mcp-Method`、`Mcp-Name`，不匹配返回 400 + `-32020`；
+- 现代版本 `tools/list` 的 `cacheScope` 只能是 `"public"` 或 `"private"`（Claude Code 会做枚举校验）。
 
 ## 工具清单
 
