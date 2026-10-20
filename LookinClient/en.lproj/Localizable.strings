@@ -226,3 +226,40 @@
 "Click to pair" = "Click to pair";
 "Pairing code %@" = "Pairing code %@";
 "Unpair" = "Unpair";
+
+/* MCP Server */
+
+"MCP Server" = "MCP Server";
+"MCP Server…" = "MCP Server…";
+"MCP Server Settings…" = "MCP Server Settings…";
+"Quit Lookin" = "Quit Lookin";
+"Copy MCP Config" = "Copy MCP Config";
+"Lookin MCP (stopped)" = "Lookin MCP (stopped)";
+"MCP server is not running — check the port" = "MCP server is not running — check the port";
+"Expose Lookin's live iOS UI inspection to any MCP-capable agent — Claude Code, Codex, Cursor, Windsurf, Gemini CLI — over a local Streamable HTTP endpoint that binds to 127.0.0.1 only." = "Expose Lookin's live iOS UI inspection to any MCP-capable agent — Claude Code, Codex, Cursor, Windsurf, Gemini CLI — over a local Streamable HTTP endpoint that binds to 127.0.0.1 only.";
+"ENDPOINT" = "ENDPOINT";
+"GENERAL" = "GENERAL";
+"PERMISSIONS" = "PERMISSIONS";
+"ADD TO CLIENT" = "ADD TO CLIENT";
+"Running — listening on 127.0.0.1:%u" = "Running — listening on 127.0.0.1:%u";
+"Not running — the port range may be occupied" = "Not running — the port range may be occupied";
+"Disabled" = "Disabled";
+"Enable MCP server" = "Enable MCP server";
+"Allow MCP writes (modify attributes)" = "Allow MCP writes (modify attributes)";
+"Allow MCP invoke (no-argument selectors)" = "Allow MCP invoke (no-argument selectors)";
+"Serve MCP at the endpoint above. Takes effect immediately; if the port is occupied the server walks up to +9." = "Serve MCP at the endpoint above. Takes effect immediately; if the port is occupied the server walks up to +9.";
+"Allow lookin_set_attribute / set_custom_attribute / set_gesture_recognizer_enabled. Runtime-only — never modifies your source code." = "Allow lookin_set_attribute / set_custom_attribute / set_gesture_recognizer_enabled. Runtime-only — never modifies your source code.";
+"Allow lookin_invoke_selector for no-argument selectors on the allowlist below." = "Allow lookin_invoke_selector for no-argument selectors on the allowlist below.";
+"Invoke allowlist" = "Invoke allowlist";
+"Copy" = "Copy";
+"Copied ✓" = "Copied ✓";
+"Click to copy" = "Click to copy";
+"Speaks MCP %@ (server/discover) and %@ (initialize)." = "Speaks MCP %@ (server/discover) and %@ (initialize).";
+"All Agents" = "All Agents";
+"Configs are copied to the clipboard — nothing is written to your config files. Changes above apply instantly; no restart needed." = "Configs are copied to the clipboard — nothing is written to your config files. Changes above apply instantly; no restart needed.";
+"Lookin MCP endpoint:" = "Lookin MCP endpoint:";
+"Claude Code:" = "Claude Code:";
+"Codex (~/.codex/config.toml):" = "Codex (~/.codex/config.toml):";
+"Cursor / Windsurf / Trae / Cline (.mcp.json):" = "Cursor / Windsurf / Trae / Cline (.mcp.json):";
+"Gemini CLI (~/.gemini/settings.json):" = "Gemini CLI (~/.gemini/settings.json):";
+"stdio bridge (for agents that only support stdio):" = "stdio bridge (for agents that only support stdio):";

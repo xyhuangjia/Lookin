@@ -224,3 +224,40 @@
 "Click to pair" = "点击配对";
 "Pairing code %@" = "配对码 %@";
 "Unpair" = "取消配对";
+
+/* MCP Server */
+
+"MCP Server" = "MCP Server";
+"MCP Server…" = "MCP Server…";
+"MCP Server Settings…" = "MCP Server 设置…";
+"Quit Lookin" = "退出 Lookin";
+"Copy MCP Config" = "拷贝 MCP 配置";
+"Lookin MCP (stopped)" = "Lookin MCP（已停止）";
+"MCP server is not running — check the port" = "MCP Server 未运行——请检查端口";
+"Expose Lookin's live iOS UI inspection to any MCP-capable agent — Claude Code, Codex, Cursor, Windsurf, Gemini CLI — over a local Streamable HTTP endpoint that binds to 127.0.0.1 only." = "通过本地 Streamable HTTP 端点，把 Lookin 对 iOS App 的实时 UI 检查能力开放给任何支持 MCP 的 Agent——Claude Code、Codex、Cursor、Windsurf、Gemini CLI。服务仅绑定 127.0.0.1。";
+"ENDPOINT" = "端点";
+"GENERAL" = "通用";
+"PERMISSIONS" = "权限";
+"ADD TO CLIENT" = "接入客户端";
+"Running — listening on 127.0.0.1:%u" = "运行中——正在监听 127.0.0.1:%u";
+"Not running — the port range may be occupied" = "未运行——端口区间可能被占用";
+"Disabled" = "已停用";
+"Enable MCP server" = "启用 MCP Server";
+"Allow MCP writes (modify attributes)" = "允许 MCP 写操作（修改属性）";
+"Allow MCP invoke (no-argument selectors)" = "允许 MCP invoke（无参 selector）";
+"Serve MCP at the endpoint above. Takes effect immediately; if the port is occupied the server walks up to +9." = "在上述端点提供 MCP 服务，改动即时生效；端口被占用时会自动向后顺延最多 9 个。";
+"Allow lookin_set_attribute / set_custom_attribute / set_gesture_recognizer_enabled. Runtime-only — never modifies your source code." = "允许 lookin_set_attribute / set_custom_attribute / set_gesture_recognizer_enabled。只修改运行时对象，不会改动你的源码。";
+"Allow lookin_invoke_selector for no-argument selectors on the allowlist below." = "允许 lookin_invoke_selector 调用下方白名单内的无参 selector。";
+"Invoke allowlist" = "Invoke 白名单";
+"Copy" = "拷贝";
+"Copied ✓" = "已拷贝 ✓";
+"Click to copy" = "点击拷贝";
+"Speaks MCP %@ (server/discover) and %@ (initialize)." = "支持 MCP %@（server/discover）与 %@（initialize）。";
+"All Agents" = "全部 Agent";
+"Configs are copied to the clipboard — nothing is written to your config files. Changes above apply instantly; no restart needed." = "配置只会复制到剪贴板，不会改写你的配置文件。上方改动即时生效，无需重启。";
+"Lookin MCP endpoint:" = "Lookin MCP 端点:";
+"Claude Code:" = "Claude Code:";
+"Codex (~/.codex/config.toml):" = "Codex (~/.codex/config.toml):";
+"Cursor / Windsurf / Trae / Cline (.mcp.json):" = "Cursor / Windsurf / Trae / Cline (.mcp.json):";
+"Gemini CLI (~/.gemini/settings.json):" = "Gemini CLI (~/.gemini/settings.json):";
+"stdio bridge (for agents that only support stdio):" = "stdio 桥接（仅支持 stdio 的 Agent）:";

@@ -54,6 +54,22 @@
     if (!self.launchedToOpenFile) {
         [[LKNavigationManager sharedInstance] showLaunch];
     }
+    // 调试/展示用：带 -openMCPSettings 启动时直接弹出 MCP 设置窗口，
+    // 并把窗口内容自渲染到 /tmp（浅色 + 深色），供 UI 验收，无需屏幕录制权限。
+    // dataWithPDF 不含窗口背景，需手动合成到 backgroundColor 上，否则黑字落在透明底上不可见。
+    if ([[NSProcessInfo processInfo].arguments containsObject:@"-openMCPSettings"]) {
+        [[LKMCPSettingsWindowController shared] performSelectorOnMainThread:@selector(present)
+                                                                  withObject:nil
+                                                             waitUntilDone:NO];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            NSWindow *win = [[LKMCPSettingsWindowController shared] window];
+            [self _renderSettingsWindow:win toPNG:@"/tmp/mcp-settings-light.png"];
+            win.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                [self _renderSettingsWindow:win toPNG:@"/tmp/mcp-settings-dark.png"];
+            });
+        });
+    }
     
     [self resolveAppCenterKey];
     
@@ -78,6 +94,57 @@
     // MCP server 开启时，关闭最后一个窗口不应退出 App，否则 Agent 会断连。
     // 此时用户可通过菜单栏的 “Quit Lookin” 退出。
     return ![LKPreferenceManager mainManager].mcpEnabled;
+}
+
+/// -openMCPSettings 调试钩子：把 contentView 渲染到带背景色的 PNG。
+/// cacheDisplayInRect 输出不含窗口背景（黑字会落在透明底上），需先铺背景色；
+/// 且不能用 dataWithPDF——其 PDF 输出会丢掉 NSButton。
+- (void)_renderSettingsWindow:(NSWindow *)win toPNG:(NSString *)path {
+    NSView *content = win.contentView;
+    NSBitmapImageRep *rep = [[NSBitmapImageRep alloc]
+                             initWithBitmapDataPlanes:NULL
+                             pixelsWide:(NSInteger)content.bounds.size.width
+                             pixelsHigh:(NSInteger)content.bounds.size.height
+                             bitsPerSample:8 samplesPerPixel:4 hasAlpha:YES isPlanar:NO
+                             colorSpaceName:NSCalibratedRGBColorSpace
+                             bytesPerRow:0 bitsPerPixel:0];
+    [content cacheDisplayInRect:content.bounds toBitmapImageRep:rep];
+
+    NSBitmapImageRep *composited = [[NSBitmapImageRep alloc]
+                                    initWithBitmapDataPlanes:NULL
+                                    pixelsWide:rep.pixelsWide pixelsHigh:rep.pixelsHigh
+                                    bitsPerSample:8 samplesPerPixel:4 hasAlpha:YES isPlanar:NO
+                                    colorSpaceName:NSCalibratedRGBColorSpace
+                                    bytesPerRow:0 bitsPerPixel:0];
+    NSGraphicsContext *ctx = [NSGraphicsContext graphicsContextWithBitmapImageRep:composited];
+    [NSGraphicsContext saveGraphicsState];
+    [NSGraphicsContext setCurrentContext:ctx];
+    [win.backgroundColor setFill];
+    NSRectFill(NSMakeRect(0, 0, composited.pixelsWide, composited.pixelsHigh));
+    [rep drawInRect:NSMakeRect(0, 0, composited.pixelsWide, composited.pixelsHigh)];
+    [NSGraphicsContext restoreGraphicsState];
+
+    [[composited representationUsingType:NSBitmapImageFileTypePNG properties:@{}] writeToFile:path atomically:YES];
+    // i18n / 布局诊断探针
+    NSMutableString *probe = [NSMutableString stringWithFormat:@"appleLanguages=%@\nprefs=%@\nlookup=%@\n",
+                              [NSUserDefaults.standardUserDefaults objectForKey:@"AppleLanguages"] ?: @"nil",
+                              [NSBundle.mainBundle preferredLocalizations],
+                              NSLocalizedString(@"Enable MCP server", @"")];
+    NSMutableArray<NSString *> *frames = [NSMutableArray array];
+    void (^dump)(NSView *, NSInteger) = ^(NSView *view, NSInteger depth) {
+        [frames addObject:[NSString stringWithFormat:@"%*s%@ %@ %@\n", (int)(depth * 2), "",
+                           NSStringFromClass(view.class), NSStringFromRect(view.frame),
+                           view.isHidden ? @"hidden" : @""]];
+    };
+    // 递归块需要自身引用，先声明再赋值
+    __block void (^walk)(NSView *, NSInteger) = nil;
+    walk = ^(NSView *view, NSInteger depth) {
+        dump(view, depth);
+        for (NSView *sub in view.subviews) { walk(sub, depth + 1); }
+    };
+    walk(content, 0);
+    [probe appendFormat:@"views:\n%@", [frames componentsJoinedByString:@""]];
+    [probe writeToFile:@"/tmp/mcp-i18n-probe.txt" atomically:YES encoding:NSUTF8StringEncoding error:nil];
 }
 
 - (BOOL)application:(NSApplication *)sender openFile:(NSString *)filename {
