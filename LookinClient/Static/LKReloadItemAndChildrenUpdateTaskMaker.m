@@ -24,6 +24,10 @@
         AlertErrorText(NSLocalizedString(@"Operation failed.", nil), NSLocalizedString(@"Please upgrade the LookinServer SDK version in your iOS project to 1.2.7 or higher.", nil), CurrentKeyWindow);
         return nil;
     }
+    // window 等无 layer 的 item oid 为 0，服务端必然返回 -1，直接跳过
+    if (item.layerObject.oid == 0) {
+        return nil;
+    }
     LookinStaticAsyncUpdateTask *task = [LookinStaticAsyncUpdateTask new];
     task.oid = item.layerObject.oid;
     task.taskType = LookinStaticAsyncUpdateTaskTypeNoScreenshot;

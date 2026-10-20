@@ -169,19 +169,19 @@
         }
         if (item.doNotFetchScreenshotReason == LookinFetchScreenshotPermitted) {
             LookinStaticAsyncUpdateTask *task = [self _taskFromDisplayItem:item type:LookinStaticAsyncUpdateTaskTypeGroupScreenshot];
-            if (![tasks containsObject:task]) {
+            if (task && ![tasks containsObject:task]) {
                 [tasks addObject:task];
             }
-            
+
             if (item.isExpandable) {
                 LookinStaticAsyncUpdateTask *task2 = [self _taskFromDisplayItem:item type:LookinStaticAsyncUpdateTaskTypeSoloScreenshot];
-                if (![tasks containsObject:task2]) {
+                if (task2 && ![tasks containsObject:task2]) {
                     [tasks addObject:task2];
                 }
             }
         } else {
             LookinStaticAsyncUpdateTask *task = [self _taskFromDisplayItem:item type:LookinStaticAsyncUpdateTaskTypeNoScreenshot];
-            if (![tasks containsObject:task]) {
+            if (task && ![tasks containsObject:task]) {
                 [tasks addObject:task];
             }
         }
@@ -221,6 +221,12 @@
 }
 
 - (LookinStaticAsyncUpdateTask *)_taskFromDisplayItem:(LookinDisplayItem *)item type:(LookinStaticAsyncUpdateTaskType)type {
+    // AppKit 的 window item、层级合成根节点等没有 layerObject，oid 取出来是 0；
+    // 注册表 index 0 是预留空槽，服务端必然返回 -1，进而弹出
+    // “Some layer data failed to transmit” 假警报。这类 item 本就没有可拉取的 detail，直接跳过。
+    if (item.layerObject.oid == 0) {
+        return nil;
+    }
     LookinStaticAsyncUpdateTask *task = [LookinStaticAsyncUpdateTask new];
     task.oid = item.layerObject.oid;
     task.frameSize = item.frame.size;

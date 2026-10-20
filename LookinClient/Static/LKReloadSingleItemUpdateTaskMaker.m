@@ -29,23 +29,33 @@
     if (item.doNotFetchScreenshotReason == LookinFetchScreenshotPermitted) {
         LookinStaticAsyncUpdateTask *task = [self taskFromItem:item];
         task.taskType = LookinStaticAsyncUpdateTaskTypeGroupScreenshot;
-        [tasks addObject:task];
-        
+        if (task) {
+            [tasks addObject:task];
+        }
+
         if (item.isExpandable) {
             LookinStaticAsyncUpdateTask *task2 = [self taskFromItem:item];
             task2.taskType = LookinStaticAsyncUpdateTaskTypeSoloScreenshot;
-            [tasks addObject:task2];
+            if (task2) {
+                [tasks addObject:task2];
+            }
         }
     } else {
         LookinStaticAsyncUpdateTask *task = [self taskFromItem:item];
         task.taskType = LookinStaticAsyncUpdateTaskTypeNoScreenshot;
-        [tasks addObject:task];
+        if (task) {
+            [tasks addObject:task];
+        }
     }
     [tasks firstObject].needBasisVisualInfo = YES;
     return tasks;
 }
 
 + (LookinStaticAsyncUpdateTask *)taskFromItem:(LookinDisplayItem *)item {
+    // window 等无 layer 的 item oid 为 0，服务端必然返回 -1，直接跳过
+    if (item.layerObject.oid == 0) {
+        return nil;
+    }
     LookinStaticAsyncUpdateTask *task = [LookinStaticAsyncUpdateTask new];
     task.oid = item.layerObject.oid;
     task.frameSize = item.frame.size;
