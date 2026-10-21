@@ -6,6 +6,17 @@
     <description>Lookin macOS 客户端更新</description>
     <language>zh-cn</language>
       <item>
+        <title>Lookin 1.0.11</title>
+        <sparkle:releaseNotesLink>https://xyhuangjia.github.io/Lookin/release/notes/1.0.11.html</sparkle:releaseNotesLink>
+        <pubDate>Wed, 21 Oct 2026 18:42:38 +0800</pubDate>
+        <enclosure url="https://github.com/xyhuangjia/Lookin/releases/download/1.0.11/Lookin-1.0.11.zip"
+                   sparkle:version="20261021"
+                   sparkle:shortVersionString="1.0.11"
+                   length="8613064"
+                   type="application/octet-stream"
+                   sparkle:edSignature="Ei+lbEOh01HZ+92Q8f2Oy5TRIvyAoZ7AE4SnnezX5KFUwy0qymtpB2ZUkBnKN9m1XnRqwkdqsBWO6DV4fSlYDQ==" />
+      </item>
+      <item>
         <title>Lookin 1.0.10</title>
         <sparkle:releaseNotesLink>https://xyhuangjia.github.io/Lookin/release/notes/1.0.10.html</sparkle:releaseNotesLink>
         <pubDate>Mon, 19 Oct 2026 17:29:12 +0800</pubDate>

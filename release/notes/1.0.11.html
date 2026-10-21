@@ -1,0 +1,14 @@
+<h2>更新</h2>
+<ul>
+<li><strong>MCP 设置窗口重写</strong>：按 ENDPOINT / GENERAL / PERMISSIONS / ADD TO CLIENT 重新分区，地址可点击复制、权限开关带说明、白名单编辑自动保存；补齐中英文界面，复制按钮覆盖 Claude Code / Codex 等常见 Agent</li>
+<li><strong>MCP server 兼容性修复</strong>：支持 Claude Code / Codex / Cursor 直连；放宽 Host/Origin 回环写法校验、补充 2024-11-05 握手、支持 JSON-RPC batch，修复启动竞态导致的 403</li>
+<li><strong>修复「图层结构有变化」弹窗假阳性</strong>：Mac 目标（AppKit）每次加载层级都会弹出的模态错误不再出现</li>
+<li><strong>稳定性与内部整理</strong>：连接层统一主线程投递契约、通道接口收拢传输类型、任务管线与更新令牌合并；修复非 PeerTalk 通道下 push 触发 unrecognized selector 的隐患，以及「显示隐藏视图」偏好被误写的问题</li>
+<li>更新源 appcast 生成与签名的若干修复，保障后续自动更新稳定</li>
+</ul>
+<h2>安装</h2>
+<ul>
+<li>下载 <code class="notranslate">Lookin-1.0.11.dmg</code> 拖入 Applications 安装；<code class="notranslate">Lookin-1.0.11.zip</code> 供 Sparkle appcast 使用</li>
+<li>1.0.10 及之后版本的用户可通过应用内更新升级</li>
+<li>本构建为 ad-hoc 签名，首次启动如被 Gatekeeper 拦截，请在「系统设置 → 隐私与安全性」中允许</li>
+</ul>
