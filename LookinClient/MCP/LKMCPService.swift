@@ -232,7 +232,7 @@ final class LKMCPService: NSObject {
         if let requested = oid {
             oid = resolveLayerOids([requested]).first ?? requested
         }
-        var taskType = LookinStaticAsyncUpdateTaskType(rawValue: 1)! // solo
+        var taskType = LookinStaticAsyncUpdateTaskType.lk_soloScreenshot
         if oid == nil {
             let hierarchy = try await fetchHierarchy(app)
             guard let root = preferredScreenshotRoot(in: hierarchy.displayItems ?? []) else {
@@ -249,10 +249,10 @@ final class LKMCPService: NSObject {
                                         suggestion: "Reload the hierarchy and retry.")
             }
             oid = rootOid
-            taskType = LookinStaticAsyncUpdateTaskType(rawValue: 2)! // group
+            taskType = LookinStaticAsyncUpdateTaskType.lk_groupScreenshot
         }
         let details = try await fetchDetails(app: app, oids: [oid!], screenshot: taskType,
-                                             attrs: .init(rawValue: 2)!, // notNeed
+                                             attrs: .lk_notNeedExplicit,
                                              basis: false, subitems: false)
         guard let detail = details.first,
               let image = detail.soloScreenshot ?? detail.groupScreenshot else {
@@ -511,8 +511,8 @@ final class LKMCPService: NSObject {
         -> (builtIn: [LookinAttributesGroup], custom: [LookinAttributesGroup]) {
         let details = try await fetchDetails(app: app,
                                              oids: [oid],
-                                             screenshot: LookinStaticAsyncUpdateTaskType(rawValue: 0)!,
-                                             attrs: LookinDetailUpdateTaskAttrRequest(rawValue: 1)!,
+                                             screenshot: LookinStaticAsyncUpdateTaskType.lk_noScreenshot,
+                                             attrs: LookinDetailUpdateTaskAttrRequest.lk_need,
                                              basis: false,
                                              subitems: false)
         guard let detail = details.first, detail.failureCode == 0 else {
@@ -667,17 +667,17 @@ final class LKMCPService: NSObject {
 
     private func parseScreenshotType(_ value: String) -> LookinStaticAsyncUpdateTaskType {
         switch value.lowercased() {
-        case "solo": return LookinStaticAsyncUpdateTaskType(rawValue: 1)!
-        case "group": return LookinStaticAsyncUpdateTaskType(rawValue: 2)!
-        default: return LookinStaticAsyncUpdateTaskType(rawValue: 0)!
+        case "solo": return LookinStaticAsyncUpdateTaskType.lk_soloScreenshot
+        case "group": return LookinStaticAsyncUpdateTaskType.lk_groupScreenshot
+        default: return LookinStaticAsyncUpdateTaskType.lk_noScreenshot
         }
     }
 
     private func parseAttrRequest(_ value: String) -> LookinDetailUpdateTaskAttrRequest {
         switch value.lowercased() {
-        case "need", "yes", "true": return LookinDetailUpdateTaskAttrRequest(rawValue: 1)!
-        case "none", "no", "false", "notneed": return LookinDetailUpdateTaskAttrRequest(rawValue: 2)!
-        default: return LookinDetailUpdateTaskAttrRequest(rawValue: 0)!
+        case "need", "yes", "true": return LookinDetailUpdateTaskAttrRequest.lk_need
+        case "none", "no", "false", "notneed": return LookinDetailUpdateTaskAttrRequest.lk_notNeedExplicit
+        default: return LookinDetailUpdateTaskAttrRequest.lk_notNeed
         }
     }
 

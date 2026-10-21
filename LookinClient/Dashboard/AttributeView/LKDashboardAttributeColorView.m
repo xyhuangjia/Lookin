@@ -12,6 +12,7 @@
 #import "LKPreferenceManager.h"
 #import "LKDashboardViewController.h"
 #import "LKHierarchyDataSource.h"
+#import "LKHierarchyColorMenuBuilder.h"
 
 @interface LKDashboardAttributeColorContainerView : LKBaseView
 
@@ -167,15 +168,15 @@
 }
 
 - (void)_updateMenuItem:(NSMenuItem *)menuItem {
-    if (menuItem.tag == self.dashboardViewController.currentDataSource.customColorMenuItemTag) {
+    if (menuItem.tag == LKHierarchyColorMenuCustomColorItemTag) {
         // "自定义颜色"
         menuItem.state = NSControlStateValueOff;
         menuItem.target = self;
         menuItem.action = @selector(_handleCustomColorMenuItem);
         return;
     }
-    
-    if (menuItem.tag == self.dashboardViewController.currentDataSource.toggleColorFormatMenuItemTag) {
+
+    if (menuItem.tag == LKHierarchyColorMenuToggleColorFormatItemTag) {
         menuItem.state = NSControlStateValueOff;
         menuItem.target = self;
         menuItem.action = @selector(_handleToggleColorFormatMenuItem);

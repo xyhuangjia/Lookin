@@ -66,168 +66,116 @@ static const NSUInteger LKMCPDefaultPort = 47200;
     return instance;
 }
 
+#pragma mark - Persistence Seam
+
+/// 持久化 seam 的缺省策略：键缺失时把默认值写入 UserDefaults，
+/// 「首次读取即落盘默认值」这一行为只在此处定义
+- (id)_objectForKey:(NSString *)key defaultProvider:(id _Nonnull (^)(void))provider {
+    id object = [[NSUserDefaults standardUserDefaults] objectForKey:key];
+    if (object != nil) {
+        return object;
+    }
+    id defaultValue = provider();
+    [[NSUserDefaults standardUserDefaults] setObject:defaultValue forKey:key];
+    return defaultValue;
+}
+
+/// 持久化 seam 的写入策略：shouldStoreToLocal 关闭时只改内存不落盘
+- (void)_persistObject:(id)object forKey:(NSString *)key {
+    if (self.shouldStoreToLocal) {
+        [[NSUserDefaults standardUserDefaults] setObject:object forKey:key];
+    }
+}
+
 - (instancetype)init {
     if (self = [super init]) {
+        // 以下属性不持久化，每次启动重置
         _previewScale = [LookinDoubleMsgAttribute attributeWithDouble:LKInitialPreviewScale];
         _previewDimension = [LookinIntegerMsgAttribute attributeWithInteger:LookinPreviewDimension3D];
         _measureState = [LookinIntegerMsgAttribute attributeWithInteger:LookinMeasureState_no];
         _isQuickSelecting = [LookinBOOLMsgAttribute attributeWithBOOL:NO];
-        
+
         NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
-        
-        // 如果本次 Lookin 客户端的 version 和上次不同，则该变量会被置为 YES
-//        BOOL clientVersionHasChanged = NO;
+
+        // 记录本次客户端 version（目前仅用于观察）
         NSInteger prevClientVersion = [userDefaults integerForKey:Key_PreviousClientVersion];
         if (prevClientVersion != LOOKIN_CLIENT_VERSION) {
-//            clientVersionHasChanged = YES;
-            [[NSUserDefaults standardUserDefaults] setInteger:LOOKIN_CLIENT_VERSION forKey:Key_PreviousClientVersion];
+            [userDefaults setInteger:LOOKIN_CLIENT_VERSION forKey:Key_PreviousClientVersion];
         }
-        
-        NSNumber *obj_showOutline = [userDefaults objectForKey:Key_ShowOutline];
-        if (obj_showOutline != nil) {
-            _showOutline = [LookinBOOLMsgAttribute attributeWithBOOL:[obj_showOutline boolValue]];
-        } else {
-            _showOutline = [LookinBOOLMsgAttribute attributeWithBOOL:YES];
-            [userDefaults setObject:@(YES) forKey:Key_ShowOutline];
-        }
-        [self.showHiddenItems subscribe:self action:@selector(_handleShowOutlineDidChange:) relatedObject:nil];
-        
-        NSNumber *obj_showHiddenItems = [userDefaults objectForKey:Key_ShowHiddenItems];
-        if (obj_showHiddenItems != nil) {
-            _showHiddenItems = [LookinBOOLMsgAttribute attributeWithBOOL:[obj_showHiddenItems boolValue]];
-        } else {
-            _showHiddenItems = [LookinBOOLMsgAttribute attributeWithBOOL:NO];
-            [userDefaults setObject:@(NO) forKey:Key_ShowHiddenItems];
-        }
+
+        _showOutline = [LookinBOOLMsgAttribute attributeWithBOOL:[self _boolForKey:Key_ShowOutline defaultValue:YES]];
+        [self.showOutline subscribe:self action:@selector(_handleShowOutlineDidChange:) relatedObject:nil];
+
+        _showHiddenItems = [LookinBOOLMsgAttribute attributeWithBOOL:[self _boolForKey:Key_ShowHiddenItems defaultValue:NO]];
         [self.showHiddenItems subscribe:self action:@selector(_handleShowHiddenItemsChange:) relatedObject:nil];
-        
-        NSNumber *obj_enableReport = [userDefaults objectForKey:Key_EnableReport];
-        if (obj_enableReport != nil) {
-            _enableReport = [obj_enableReport boolValue];
-        } else {
-            _enableReport = YES;
-            [userDefaults setObject:@(_enableReport) forKey:Key_EnableReport];
-        }
-        
-        NSNumber *obj_doubleClickBehavior = [userDefaults objectForKey:Key_DoubleClickBehavior];
-        if (obj_doubleClickBehavior) {
-            _doubleClickBehavior = [obj_doubleClickBehavior intValue];
-        } else {
-            _doubleClickBehavior = LookinDoubleClickBehaviorCollapse;
-            [userDefaults setObject:@(_doubleClickBehavior) forKey:Key_DoubleClickBehavior];
-        }
-        
-        NSNumber *obj_rgbaFormat = [userDefaults objectForKey:Key_RgbaFormat];
-        if (obj_rgbaFormat != nil) {
-            _rgbaFormat = [obj_rgbaFormat boolValue];
-        } else {
-            _rgbaFormat = YES;
-            [userDefaults setObject:@(_rgbaFormat) forKey:Key_RgbaFormat];
-        }
-        
-        double zInterspaceValue;
-        NSNumber *obj_zInterspace = [userDefaults objectForKey:Key_ZInterspace];
-        if (obj_zInterspace != nil) {
-            zInterspaceValue = [obj_zInterspace doubleValue];
-        } else {
-            /// 默认值为 0.22
-            zInterspaceValue = .22;
-            [userDefaults setObject:@(zInterspaceValue) forKey:Key_ZInterspace];
-        }
+
+        _enableReport = [self _boolForKey:Key_EnableReport defaultValue:YES];
+
+        _doubleClickBehavior = [self _integerForKey:Key_DoubleClickBehavior defaultValue:LookinDoubleClickBehaviorCollapse];
+
+        _rgbaFormat = [self _boolForKey:Key_RgbaFormat defaultValue:YES];
+
+        // 默认值为 0.22
+        double zInterspaceValue = [self _doubleForKey:Key_ZInterspace defaultValue:.22];
         zInterspaceValue = MAX(MIN(zInterspaceValue, LookinPreviewMaxZInterspace), LookinPreviewMinZInterspace);
         _zInterspace = [LookinDoubleMsgAttribute attributeWithDouble:zInterspaceValue];
         [self.zInterspace subscribe:self action:@selector(_handleZInterspaceDidChange:) relatedObject:nil];
-        
-        NSNumber *obj_appearanceType = [userDefaults objectForKey:Key_AppearanceType];
-        if (obj_appearanceType != nil) {
-            _appearanceType = [obj_appearanceType integerValue];
-        } else {
-            _appearanceType = LookinPreferredAppeanranceTypeSystem;
-            [userDefaults setObject:@(_appearanceType) forKey:Key_AppearanceType];
-        }
-        
-        NSNumber *obj_expansionIndex = [userDefaults objectForKey:Key_ExpansionIndex];
-        if (obj_expansionIndex != nil) {
-            _expansionIndex = [obj_expansionIndex integerValue];
-        } else {
-            _expansionIndex = 3;
-            [userDefaults setObject:@(_expansionIndex) forKey:Key_ExpansionIndex];
-        }
-        
-        NSNumber *obj_contrastLevel = [userDefaults objectForKey:Key_ContrastLevel];
-        if (obj_contrastLevel != nil) {
-            _imageContrastLevel = [obj_contrastLevel integerValue];
-        } else {
-            _imageContrastLevel = 0;
-            [userDefaults setObject:@(_imageContrastLevel) forKey:Key_ContrastLevel];
-        }
-        
-        NSNumber *obj_syncConsoleTarget = [userDefaults objectForKey:Key_SyncConsoleTarget];
-        if (obj_syncConsoleTarget != nil) {
-            _syncConsoleTarget = [obj_syncConsoleTarget boolValue];
-        } else {
-            _syncConsoleTarget = YES;
-            [userDefaults setObject:@(_syncConsoleTarget) forKey:Key_SyncConsoleTarget];
-        }
-        
-        NSNumber *obj_freeRotation = [userDefaults objectForKey:Key_FreeRotation];
-        if (obj_freeRotation != nil) {
-            _freeRotation = [LookinBOOLMsgAttribute attributeWithBOOL:obj_freeRotation.boolValue];
-        } else {
-            _freeRotation = [LookinBOOLMsgAttribute attributeWithBOOL:YES];
-            [userDefaults setObject:@(_freeRotation.currentBOOLValue) forKey:Key_FreeRotation];
-        }
+
+        _appearanceType = [self _integerForKey:Key_AppearanceType defaultValue:LookinPreferredAppeanranceTypeSystem];
+
+        _expansionIndex = [self _integerForKey:Key_ExpansionIndex defaultValue:3];
+
+        _imageContrastLevel = [self _integerForKey:Key_ContrastLevel defaultValue:0];
+
+        _syncConsoleTarget = [self _boolForKey:Key_SyncConsoleTarget defaultValue:YES];
+
+        _freeRotation = [LookinBOOLMsgAttribute attributeWithBOOL:[self _boolForKey:Key_FreeRotation defaultValue:YES]];
         [self.freeRotation subscribe:self action:@selector(_handleFreeRotationDidChange:) relatedObject:nil];
-        
-        NSNumber *obj_fastMode = [userDefaults objectForKey:Key_FastMode];
-        if (obj_fastMode != nil) {
-            _fastMode = [LookinBOOLMsgAttribute attributeWithBOOL:obj_fastMode.boolValue];
-        } else {
-            _fastMode = [LookinBOOLMsgAttribute attributeWithBOOL:NO];
-            [userDefaults setObject:@(_fastMode.currentBOOLValue) forKey:Key_FastMode];
-        }
+
+        _fastMode = [LookinBOOLMsgAttribute attributeWithBOOL:[self _boolForKey:Key_FastMode defaultValue:NO]];
         [self.fastMode subscribe:self action:@selector(_handleFastModeDidChange:) relatedObject:nil];
-        
-        self.storedSectionShowConfig = [[userDefaults objectForKey:Key_SectionsShow] mutableCopy];
-        if (!self.storedSectionShowConfig) {
-            self.storedSectionShowConfig = [NSMutableDictionary dictionary];
-        }
-        
-        _collapsedAttrGroups = [userDefaults objectForKey:Key_CollapsedGroups];
-        if (!_collapsedAttrGroups) {
-            _collapsedAttrGroups = @[LookinAttrGroup_Class];
-        }
-        
-        NSNumber *obj_preferredExportCompression = [userDefaults objectForKey:Key_PreferredExportCompression];
-        if (obj_preferredExportCompression != nil) {
-            _preferredExportCompression = [obj_preferredExportCompression doubleValue];
-        } else {
-            /// 这里的默认值需要在 LKExportAccessory.m 里定义的选项里面
-            _preferredExportCompression = .5;
-            [userDefaults setObject:@(_preferredExportCompression) forKey:Key_PreferredExportCompression];
-        }
-        
+
+        self.storedSectionShowConfig = [[userDefaults objectForKey:Key_SectionsShow] mutableCopy] ?: [NSMutableDictionary dictionary];
+
+        _collapsedAttrGroups = [userDefaults objectForKey:Key_CollapsedGroups] ?: @[LookinAttrGroup_Class];
+
+        // 默认值需要在 LKExportAccessory.m 里定义的选项里面
+        _preferredExportCompression = [self _doubleForKey:Key_PreferredExportCompression defaultValue:.5];
+
         _receivingConfigTime_Color = [userDefaults doubleForKey:Key_ReceivingConfigTime_Color];
         _receivingConfigTime_Class = [userDefaults doubleForKey:Key_ReceivingConfigTime_Class];
 
-        NSNumber *obj_mcpEnabled = [userDefaults objectForKey:Key_MCPEnabled];
-        _mcpEnabled = obj_mcpEnabled ? obj_mcpEnabled.boolValue : NO;
+        // MCP 各项缺失时不写默认值，与 setter 里的缺省回退保持一致
+        _mcpEnabled = [userDefaults boolForKey:Key_MCPEnabled];
 
-        NSNumber *obj_mcpPort = [userDefaults objectForKey:Key_MCPPort];
-        _mcpPort = obj_mcpPort ? obj_mcpPort.unsignedIntegerValue : LKMCPDefaultPort;
+        _mcpPort = (NSUInteger)[userDefaults integerForKey:Key_MCPPort];
         if (_mcpPort < 1024 || _mcpPort > 65535) {
             _mcpPort = LKMCPDefaultPort;
         }
 
-        NSNumber *obj_mcpAllowWrites = [userDefaults objectForKey:Key_MCPAllowWrites];
-        _mcpAllowWrites = obj_mcpAllowWrites ? obj_mcpAllowWrites.boolValue : NO;
-
-        NSNumber *obj_mcpAllowInvoke = [userDefaults objectForKey:Key_MCPAllowInvoke];
-        _mcpAllowInvoke = obj_mcpAllowInvoke ? obj_mcpAllowInvoke.boolValue : NO;
-
+        _mcpAllowWrites = [userDefaults boolForKey:Key_MCPAllowWrites];
+        _mcpAllowInvoke = [userDefaults boolForKey:Key_MCPAllowInvoke];
         _mcpInvokeAllowlistText = [userDefaults objectForKey:Key_MCPInvokeAllowlist] ?: @"";
     }
     return self;
+}
+
+- (BOOL)_boolForKey:(NSString *)key defaultValue:(BOOL)defaultValue {
+    return [[self _objectForKey:key defaultProvider:^id _Nonnull {
+        return @(defaultValue);
+    }] boolValue];
+}
+
+- (NSInteger)_integerForKey:(NSString *)key defaultValue:(NSInteger)defaultValue {
+    return [[self _objectForKey:key defaultProvider:^id _Nonnull {
+        return @(defaultValue);
+    }] integerValue];
+}
+
+- (double)_doubleForKey:(NSString *)key defaultValue:(double)defaultValue {
+    return [[self _objectForKey:key defaultProvider:^id _Nonnull {
+        return @(defaultValue);
+    }] doubleValue];
 }
 
 #pragma mark - MCP
@@ -237,9 +185,7 @@ static const NSUInteger LKMCPDefaultPort = 47200;
         return;
     }
     _mcpEnabled = mcpEnabled;
-    if (self.shouldStoreToLocal) {
-        [[NSUserDefaults standardUserDefaults] setObject:@(mcpEnabled) forKey:Key_MCPEnabled];
-    }
+    [self _persistObject:@(mcpEnabled) forKey:Key_MCPEnabled];
     [[NSNotificationCenter defaultCenter] postNotificationName:LKMCPSettingsDidChangeNotification object:self];
 }
 
@@ -251,9 +197,7 @@ static const NSUInteger LKMCPDefaultPort = 47200;
         return;
     }
     _mcpPort = mcpPort;
-    if (self.shouldStoreToLocal) {
-        [[NSUserDefaults standardUserDefaults] setObject:@(mcpPort) forKey:Key_MCPPort];
-    }
+    [self _persistObject:@(mcpPort) forKey:Key_MCPPort];
     [[NSNotificationCenter defaultCenter] postNotificationName:LKMCPSettingsDidChangeNotification object:self];
 }
 
@@ -262,9 +206,7 @@ static const NSUInteger LKMCPDefaultPort = 47200;
         return;
     }
     _mcpAllowWrites = mcpAllowWrites;
-    if (self.shouldStoreToLocal) {
-        [[NSUserDefaults standardUserDefaults] setObject:@(mcpAllowWrites) forKey:Key_MCPAllowWrites];
-    }
+    [self _persistObject:@(mcpAllowWrites) forKey:Key_MCPAllowWrites];
     [[NSNotificationCenter defaultCenter] postNotificationName:LKMCPSettingsDidChangeNotification object:self];
 }
 
@@ -273,17 +215,13 @@ static const NSUInteger LKMCPDefaultPort = 47200;
         return;
     }
     _mcpAllowInvoke = mcpAllowInvoke;
-    if (self.shouldStoreToLocal) {
-        [[NSUserDefaults standardUserDefaults] setObject:@(mcpAllowInvoke) forKey:Key_MCPAllowInvoke];
-    }
+    [self _persistObject:@(mcpAllowInvoke) forKey:Key_MCPAllowInvoke];
     [[NSNotificationCenter defaultCenter] postNotificationName:LKMCPSettingsDidChangeNotification object:self];
 }
 
 - (void)setMcpInvokeAllowlistText:(NSString *)mcpInvokeAllowlistText {
     _mcpInvokeAllowlistText = [mcpInvokeAllowlistText copy] ?: @"";
-    if (self.shouldStoreToLocal) {
-        [[NSUserDefaults standardUserDefaults] setObject:_mcpInvokeAllowlistText forKey:Key_MCPInvokeAllowlist];
-    }
+    [self _persistObject:_mcpInvokeAllowlistText forKey:Key_MCPInvokeAllowlist];
     [[NSNotificationCenter defaultCenter] postNotificationName:LKMCPSettingsDidChangeNotification object:self];
 }
 
@@ -300,15 +238,11 @@ static const NSUInteger LKMCPDefaultPort = 47200;
 }
 
 - (void)_handleShowOutlineDidChange:(LookinMsgActionParams *)param {
-    if (self.shouldStoreToLocal) {
-        [[NSUserDefaults standardUserDefaults] setObject:@(param.boolValue) forKey:Key_ShowOutline];
-    }
+    [self _persistObject:@(param.boolValue) forKey:Key_ShowOutline];
 }
 
 - (void)_handleShowHiddenItemsChange:(LookinMsgActionParams *)param {
-    if (self.shouldStoreToLocal) {
-        [[NSUserDefaults standardUserDefaults] setObject:@(param.boolValue) forKey:Key_ShowHiddenItems];
-    }
+    [self _persistObject:@(param.boolValue) forKey:Key_ShowHiddenItems];
 }
 
 - (void)setEnableReport:(BOOL)enableReport {
@@ -316,10 +250,8 @@ static const NSUInteger LKMCPDefaultPort = 47200;
         return;
     }
     _enableReport = enableReport;
-    if (self.shouldStoreToLocal) {
-        [[NSUserDefaults standardUserDefaults] setObject:@(enableReport) forKey:Key_EnableReport];
-    }
-    
+    [self _persistObject:@(enableReport) forKey:Key_EnableReport];
+
     MSACAppCenter.enabled = enableReport;
 }
 
@@ -328,16 +260,12 @@ static const NSUInteger LKMCPDefaultPort = 47200;
         return;
     }
     _rgbaFormat = rgbaFormat;
-    if (self.shouldStoreToLocal) {
-        [[NSUserDefaults standardUserDefaults] setObject:@(rgbaFormat) forKey:Key_RgbaFormat];
-    }
+    [self _persistObject:@(rgbaFormat) forKey:Key_RgbaFormat];
 }
 
 - (void)setDoubleClickBehavior:(LookinDoubleClickBehavior)doubleClickBehavior {
     _doubleClickBehavior = doubleClickBehavior;
-    if (self.shouldStoreToLocal) {
-        [[NSUserDefaults standardUserDefaults] setObject:@(doubleClickBehavior) forKey:Key_DoubleClickBehavior];
-    }
+    [self _persistObject:@(doubleClickBehavior) forKey:Key_DoubleClickBehavior];
 }
 
 - (void)setAppearanceType:(LookinPreferredAppeanranceType)appearanceType {
@@ -345,9 +273,7 @@ static const NSUInteger LKMCPDefaultPort = 47200;
         return;
     }
     _appearanceType = appearanceType;
-    if (self.shouldStoreToLocal) {
-        [[NSUserDefaults standardUserDefaults] setObject:@(appearanceType) forKey:Key_AppearanceType];
-    }
+    [self _persistObject:@(appearanceType) forKey:Key_AppearanceType];
 }
 
 - (void)setExpansionIndex:(NSInteger)expansionIndex {
@@ -355,9 +281,7 @@ static const NSUInteger LKMCPDefaultPort = 47200;
         return;
     }
     _expansionIndex = expansionIndex;
-    if (self.shouldStoreToLocal) {
-        [[NSUserDefaults standardUserDefaults] setObject:@(expansionIndex) forKey:Key_ExpansionIndex];
-    }
+    [self _persistObject:@(expansionIndex) forKey:Key_ExpansionIndex];
 }
 
 - (void)setImageContrastLevel:(NSInteger)imageContrastLevel {
@@ -365,17 +289,12 @@ static const NSUInteger LKMCPDefaultPort = 47200;
         return;
     }
     _imageContrastLevel = imageContrastLevel;
-    
-    if (self.shouldStoreToLocal) {
-        [[NSUserDefaults standardUserDefaults] setObject:@(imageContrastLevel) forKey:Key_ContrastLevel];
-    }
+    [self _persistObject:@(imageContrastLevel) forKey:Key_ContrastLevel];
 }
 
 - (void)setCollapsedAttrGroups:(NSArray<NSNumber *> *)collapsedAttrGroups {
     _collapsedAttrGroups = collapsedAttrGroups.copy;
-    if (self.shouldStoreToLocal) {
-        [[NSUserDefaults standardUserDefaults] setObject:collapsedAttrGroups forKey:Key_CollapsedGroups];
-    }
+    [self _persistObject:collapsedAttrGroups forKey:Key_CollapsedGroups];
 }
 
 - (void)setPreferredExportCompression:(CGFloat)preferredExportCompression {
@@ -383,9 +302,7 @@ static const NSUInteger LKMCPDefaultPort = 47200;
         return;
     }
     _preferredExportCompression = preferredExportCompression;
-    if (self.shouldStoreToLocal) {
-        [[NSUserDefaults standardUserDefaults] setObject:@(preferredExportCompression) forKey:Key_PreferredExportCompression];
-    }
+    [self _persistObject:@(preferredExportCompression) forKey:Key_PreferredExportCompression];
 }
 
 - (void)setCallStackType:(LookinPreferredCallStackType)callStackType {
@@ -401,9 +318,7 @@ static const NSUInteger LKMCPDefaultPort = 47200;
         return;
     }
     _syncConsoleTarget = syncConsoleTarget;
-    if (self.shouldStoreToLocal) {
-        [[NSUserDefaults standardUserDefaults] setObject:@(syncConsoleTarget) forKey:Key_SyncConsoleTarget];
-    }
+    [self _persistObject:@(syncConsoleTarget) forKey:Key_SyncConsoleTarget];
 }
 
 - (void)setReceivingConfigTime_Class:(NSTimeInterval)receivingConfigTime_Class {
@@ -417,28 +332,16 @@ static const NSUInteger LKMCPDefaultPort = 47200;
 }
 
 - (void)_handleFreeRotationDidChange:(LookinMsgActionParams *)param {
-    if (!self.shouldStoreToLocal) {
-        return;
-    }
-    BOOL boolValue = param.boolValue;
-    [[NSUserDefaults standardUserDefaults] setObject:@(boolValue) forKey:Key_FreeRotation];
+    [self _persistObject:@(param.boolValue) forKey:Key_FreeRotation];
 }
 
 - (void)_handleFastModeDidChange:(LookinMsgActionParams *)param {
-    if (!self.shouldStoreToLocal) {
-        return;
-    }
-    BOOL boolValue = param.boolValue;
-    [[NSUserDefaults standardUserDefaults] setObject:@(boolValue) forKey:Key_FastMode];
+    [self _persistObject:@(param.boolValue) forKey:Key_FastMode];
 }
 
 
 - (void)_handleZInterspaceDidChange:(LookinMsgActionParams *)param {
-    if (!self.shouldStoreToLocal) {
-        return;
-    }
-    double doubleValue = param.doubleValue;
-    [[NSUserDefaults standardUserDefaults] setObject:@(doubleValue) forKey:Key_ZInterspace];
+    [self _persistObject:@(param.doubleValue) forKey:Key_ZInterspace];
 }
 
 /// 返回某个 section 是否应该被显示在主界面上

@@ -20,8 +20,7 @@
 #import "LookinDisplayItem+LookinClient.h"
 #import "LKPreferenceManager.h"
 #import "LKVersionComparer.h"
-#import "LKReloadSingleItemUpdateTaskMaker.h"
-#import "LKReloadItemAndChildrenUpdateTaskMaker.h"
+#import "LKUpdateToken.h"
 #import "LKInspectionRequestGate.h"
 
 @interface LKDetailUpdateRequest : NSObject
@@ -75,8 +74,9 @@
 /// 已经发送出去、尚未结束的 request
 @property(nonatomic, strong) LKDetailUpdateRequest *ongoingRequest;
 
-/// 每次发起新的 detail 请求时自增。断连或取消后旧请求的回调会携带过期 generation，据此忽略。
-@property(nonatomic, assign) NSUInteger requestGeneration;
+/// 断连或被新请求取代后，旧回调携带的过期 generation 会被丢弃。
+/// 与窗口的 hierarchy 拉取共用 LKUpdateToken 这一实现（两者生命周期不同，失效语义一致）
+@property(nonatomic, strong) LKUpdateToken *updateToken;
 
 @end
 
@@ -98,6 +98,7 @@
 - (instancetype)init {
     if (self = [super init]) {
         self.succeededRequests = [NSMutableArray array];
+        self.updateToken = [LKUpdateToken new];
         _modifyingUpdateProgressSignal = [RACSubject subject];
         _modifyingUpdateErrorSignal = [RACSubject subject];
         
@@ -136,8 +137,8 @@
 }
 
 - (void)resetAfterDisconnection {
-    // 递增 generation 后，旧请求后续的超时 / 完成回调都会被忽略
-    self.requestGeneration += 1;
+    // 作废后，旧请求后续的超时 / 完成回调都会被忽略
+    [self.updateToken invalidate];
     BOOL hadOngoingRequest = (self.ongoingRequest != nil);
     self.ongoingRequest = nil;
     if (hadOngoingRequest) {
@@ -263,8 +264,8 @@
     @weakify(self);
     NSUInteger screenshotsTotalCount = tasks.count;
     __block NSUInteger receivedScreenshotsCount = 0;
-    // 同 sendTasks: 的原因，无线连接时必须切回主线程再改 hierarchy 数据源和进度信号
-    [[[app fetchModificationPatchWithTasks:tasks] deliverOnMainThread] subscribeNext:^(LookinDisplayItemDetail *detail) {
+    // fetchModificationPatchWithTasks 由连接层保证主线程投递，可直接改 hierarchy 数据源和进度信号
+    [[app fetchModificationPatchWithTasks:tasks] subscribeNext:^(LookinDisplayItemDetail *detail) {
         @strongify(self);
         [[LKStaticHierarchyDataSource sharedInstance] modifyWithDisplayItemDetail:detail];
         
@@ -283,7 +284,6 @@
 
     } completed:^{
         @strongify(self);
-        NSAssert(screenshotsTotalCount == screenshotsTotalCount, @"");
         [self.modifyingUpdateProgressSignal sendNext:[RACTwoTuple tupleWithObjectsFromArray:@[@(screenshotsTotalCount), @(screenshotsTotalCount)]]];
     }];
 }
@@ -366,8 +366,9 @@
         return;
     }
 
-    // MCP 正在使用 channel 时，UI 的 detail 请求先让路，避免同类型请求互相取消。
-    if ([LKInspectionRequestGate sharedGate].mcpBusy) {
+    // MCP 正在使用 channel 时，UI 的 detail 请求先让路，避免同类型请求互相取消
+    //（完整协调协议见 LKInspectionRequestGate.h）
+    if (![LKInspectionRequestGate sharedGate].uiMaySendDetailRequest) {
         @weakify(self);
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             @strongify(self);
@@ -380,8 +381,8 @@
     [self endUpdating];
     
     NSArray<LookinStaticAsyncUpdateTasksPackage *> *packages = [self _makePackagesFromTasks:newTasks];
-    self.requestGeneration += 1;
-    NSUInteger generation = self.requestGeneration;
+    [self.updateToken invalidate];
+    NSUInteger generation = self.updateToken.currentGeneration;
     self.ongoingRequest = [LKDetailUpdateRequest new];
     self.ongoingRequest.packages = packages;
 
@@ -390,12 +391,11 @@
     NSLog(@"AsyncUpdate - Will send %@ tasks.", @(newTasks.count));
 
     @weakify(self);
-    // 无线连接的数据回调来自 GCDAsyncSocket 的后台队列，若不切回主线程，
-    // 会触发 delegate 在后台线程修改 NSToolbarItem.label / NSAlert 等 UI，
-    // 可能导致 “Size of item ... was invalidated during layout” 崩溃
-    [[[app fetchHierarchyDetailWithTaskPackages:packages] deliverOnMainThread] subscribeNext:^(NSArray<LookinDisplayItemDetail *> *details) {
+    // fetchHierarchyDetailWithTaskPackages 由连接层保证主线程投递，delegate 直接更新
+    // NSToolbarItem.label 等 UI 不会触发后台线程布局崩溃
+    [[app fetchHierarchyDetailWithTaskPackages:packages] subscribeNext:^(NSArray<LookinDisplayItemDetail *> *details) {
         @strongify(self);
-        if (generation != self.requestGeneration) {
+        if (![self.updateToken isCurrent:generation]) {
             return;
         }
         [details enumerateObjectsUsingBlock:^(LookinDisplayItemDetail * _Nonnull detail, NSUInteger idx, BOOL * _Nonnull stop) {
@@ -410,7 +410,7 @@
 
     } error:^(NSError * _Nullable error) {
         @strongify(self);
-        if (generation != self.requestGeneration) {
+        if (![self.updateToken isCurrent:generation]) {
             // 连接已断开或已被新请求取代，不再展示“请求超时”
             return;
         }
@@ -427,7 +427,7 @@
     } completed:^{
         // 注意，用户手动取消请求后，也会走到这里
         @strongify(self);
-        if (generation != self.requestGeneration) {
+        if (![self.updateToken isCurrent:generation]) {
             return;
         }
         if (self.ongoingRequest) {
@@ -466,8 +466,64 @@
     [self.delegate detailUpdateTasksTotalCount:totalCount finishedCount:finishedCount];
 }
 
+#pragma mark - Task Construction（原 LKReloadSingleItemUpdateTaskMaker / LKReloadItemAndChildrenUpdateTaskMaker 内化于此）
+
+/// 按需 detail（Server 1.2.7 起）需要 server 配合，版本过旧时提示并放弃
+- (BOOL)_ensureServerSupportsDetailUpdate {
+    NSString *serverVersion = [[LKAppsManager sharedInstance] inspectingApp].appInfo.serverReadableVersion;
+    if ([LKVersionComparer compareWithExpectedVersion:@"1.2.7" realVersion:serverVersion]) {
+        return YES;
+    }
+    AlertErrorText(NSLocalizedString(@"Operation failed.", nil), NSLocalizedString(@"Please upgrade the LookinServer SDK version in your iOS project to 1.2.7 or higher.", nil), CurrentKeyWindow);
+    return NO;
+}
+
+/// 「重新拉取单个 item（不含子图层）」的任务集：按截图策略给出 group/solo 截图任务或纯 attr 任务
+- (NSArray<LookinStaticAsyncUpdateTask *> *)_tasksForReloadingSingleItem:(LookinDisplayItem *)item {
+    NSMutableArray<LookinStaticAsyncUpdateTask *> *tasks = [NSMutableArray array];
+    if (item.doNotFetchScreenshotReason == LookinFetchScreenshotPermitted) {
+        LookinStaticAsyncUpdateTask *task = [self _taskFromDisplayItem:item type:LookinStaticAsyncUpdateTaskTypeGroupScreenshot];
+        if (task) {
+            [tasks addObject:task];
+        }
+        if (item.isExpandable) {
+            LookinStaticAsyncUpdateTask *task2 = [self _taskFromDisplayItem:item type:LookinStaticAsyncUpdateTaskTypeSoloScreenshot];
+            if (task2) {
+                [tasks addObject:task2];
+            }
+        }
+    } else {
+        LookinStaticAsyncUpdateTask *task = [self _taskFromDisplayItem:item type:LookinStaticAsyncUpdateTaskTypeNoScreenshot];
+        if (task) {
+            [tasks addObject:task];
+        }
+    }
+    // 首个任务额外要求返回 basis 视觉信息（oid==0 的 item 已被 _taskFromDisplayItem 过滤为空集）
+    [tasks firstObject].needBasisVisualInfo = YES;
+    return tasks;
+}
+
+/// 「重新拉取 item 及其子图层」的首批任务：root 的 attr 骨架 + 子图层列表，截图留给随后的批量更新
+- (NSArray<LookinStaticAsyncUpdateTask *> *)_tasksForReloadingItemAndChildrenRoot:(LookinDisplayItem *)rootItem {
+    LookinStaticAsyncUpdateTask *task = [self _taskFromDisplayItem:rootItem type:LookinStaticAsyncUpdateTaskTypeNoScreenshot];
+    if (!task) {
+        return nil;
+    }
+    task.attrRequest = LookinDetailUpdateTaskAttrRequest_NotNeed;
+    task.needBasisVisualInfo = YES;
+    task.needSubitems = YES;
+    return @[task];
+}
+
 - (void)reloadSingleDisplayItem:(LookinDisplayItem *)item {
-    NSArray *tasks = [LKReloadSingleItemUpdateTaskMaker makeWithItem:item];
+    if (!item || self.isUpdating) {
+        NSAssert(NO, @"");
+        return;
+    }
+    if (![self _ensureServerSupportsDetailUpdate]) {
+        return;
+    }
+    NSArray *tasks = [self _tasksForReloadingSingleItem:item];
     if (tasks.count == 0) {
         return;
     }
@@ -475,8 +531,15 @@
 }
 
 - (void)reloadDisplayItemAndChildren:(LookinDisplayItem *)rootItem {
+    if (!rootItem || self.isUpdating) {
+        NSAssert(NO, @"");
+        return;
+    }
+    if (![self _ensureServerSupportsDetailUpdate]) {
+        return;
+    }
     // 先更新 rootItem 的 basis + attr + subitems
-    NSArray *tasks = [LKReloadItemAndChildrenUpdateTaskMaker makeWithItem:rootItem];
+    NSArray *tasks = [self _tasksForReloadingItemAndChildrenRoot:rootItem];
     if (tasks.count == 0) {
         return;
     }
@@ -489,7 +552,7 @@
             [req removeTaskWithItem:item];
         }];
     }];
-    
+
     [self sendTasks:tasks completion:^{
         // 更新 rootItem 以及 children 的图层详情
         [self updateAfterReloadingItemAndChildren:rootItem];

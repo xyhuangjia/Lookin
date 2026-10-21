@@ -23,6 +23,7 @@
 #import "LKExportAccessoryView.h"
 #import "LKWindow.h"
 #import "LKStaticAsyncUpdateManager.h"
+#import "LKUpdateToken.h"
 #import "LKTutorialManager.h"
 #import "LookinHierarchyFile.h"
 #import "LKPreviewView.h"
@@ -45,12 +46,20 @@
 @property(nonatomic, assign) BOOL isFetchingHierarchy;
 @property(nonatomic, assign) BOOL isFetchingDetails;
 
-/// 断连 / 重新发起请求时自增，用于丢弃旧 hierarchy 请求在重连之后才到达的超时回调
-@property(nonatomic, assign) NSUInteger hierarchyFetchGeneration;
+/// 断连 / 重新发起请求时作废旧 generation，丢弃旧 hierarchy 请求在重连之后才到达的回调。
+/// 与 LKStaticAsyncUpdateManager 的 detail 请求共用 LKUpdateToken 实现
+@property(nonatomic, strong) LKUpdateToken *hierarchyFetchToken;
 
 @end
 
 @implementation LKStaticWindowController
+
+- (LKUpdateToken *)hierarchyFetchToken {
+    if (!_hierarchyFetchToken) {
+        _hierarchyFetchToken = [LKUpdateToken new];
+    }
+    return _hierarchyFetchToken;
+}
 
 - (instancetype)init {
     NSSize screenSize = [NSScreen mainScreen].frame.size;
@@ -202,18 +211,18 @@
     } else {
         BOOL isTheSameApp = [[LKAppsManager sharedInstance].inspectingApp.appInfo isEqualToAppInfo:app.appInfo];
 
-        // 与自动重连 / reload 共用 generation：手动切换 App 时，尚未返回的旧请求结果直接丢弃
-        self.hierarchyFetchGeneration += 1;
-        NSUInteger generation = self.hierarchyFetchGeneration;
+        // 与自动重连 / reload 共用同一令牌：手动切换 App 时，尚未返回的旧请求结果直接丢弃
+        [self.hierarchyFetchToken invalidate];
+        NSUInteger generation = self.hierarchyFetchToken.currentGeneration;
         self.isFetchingHierarchy = YES;
         [self.viewController.progressView animateToProgress:InitialIndicatorProgressWhenFetchHierarchy];
 
         @weakify(self);
-        // 无线连接的响应在后台线程回调，这里会修改 isFetchingHierarchy（联动 toolbar item.enabled）、
-        // inspectingApp（联动 App item 宽度约束）等 UI 状态，必须切回主线程
-        [[[app fetchHierarchyData] deliverOnMainThread] subscribeNext:^(LookinHierarchyInfo *info) {
+        // fetchHierarchyData 由连接层保证主线程投递，这里直接更新 isFetchingHierarchy（联动 toolbar
+        // item.enabled）、inspectingApp（联动 App item 宽度约束）等 UI 状态
+        [[app fetchHierarchyData] subscribeNext:^(LookinHierarchyInfo *info) {
             @strongify(self);
-            if (generation != self.hierarchyFetchGeneration) {
+            if (![self.hierarchyFetchToken isCurrent:generation]) {
                 return;
             }
             self.isFetchingHierarchy = NO;
@@ -223,7 +232,7 @@
 
         } error:^(NSError * _Nullable error) {
             @strongify(self);
-            if (generation != self.hierarchyFetchGeneration) {
+            if (![self.hierarchyFetchToken isCurrent:generation]) {
                 return;
             }
             self.isFetchingHierarchy = NO;
@@ -298,7 +307,7 @@
     // 先让 AsyncUpdateManager 丢弃旧请求并通知 delegate 回到空闲态（此时 isFetchingDetails 仍为 YES，
     // 因此 toolbar 上残留的 “x / y” 文案和停止图标会被重置），再清理本控制器的状态。
     [[LKStaticAsyncUpdateManager sharedInstance] resetAfterDisconnection];
-    self.hierarchyFetchGeneration += 1;
+    [self.hierarchyFetchToken invalidate];
     self.isFetchingHierarchy = NO;
     self.isFetchingDetails = NO;
     [self.viewController.progressView finishWithCompletion:nil];
@@ -313,17 +322,17 @@
 }
 
 - (void)_fetchHierarchyForApp:(LKInspectableApp *)app keepState:(BOOL)keepState showsErrorAlert:(BOOL)showsErrorAlert {
-    self.hierarchyFetchGeneration += 1;
-    NSUInteger generation = self.hierarchyFetchGeneration;
+    [self.hierarchyFetchToken invalidate];
+    NSUInteger generation = self.hierarchyFetchToken.currentGeneration;
 
     self.isFetchingHierarchy = YES;
     [LKPerformanceReporter.sharedInstance willStartReload];
     [self.viewController.progressView animateToProgress:InitialIndicatorProgressWhenFetchHierarchy];
 
     @weakify(self);
-    [[[app fetchHierarchyData] deliverOnMainThread] subscribeNext:^(LookinHierarchyInfo *info) {
+    [[app fetchHierarchyData] subscribeNext:^(LookinHierarchyInfo *info) {
         @strongify(self);
-        if (generation != self.hierarchyFetchGeneration) {
+        if (![self.hierarchyFetchToken isCurrent:generation]) {
             return;
         }
         self.isFetchingHierarchy = NO;
@@ -335,7 +344,7 @@
 
     } error:^(NSError * _Nullable error) {
         @strongify(self);
-        if (generation != self.hierarchyFetchGeneration) {
+        if (![self.hierarchyFetchToken isCurrent:generation]) {
             // 连接已断开或已有更新的请求，忽略旧请求的超时
             return;
         }

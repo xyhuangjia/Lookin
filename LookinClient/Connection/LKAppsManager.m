@@ -43,12 +43,12 @@ NSString *const LKInspectingAppDidEndNotificationName = @"LKInspectingAppDidEndN
         _didAutoReconnectSucc = [RACSubject subject];
         
         @weakify(self);
-        // 连接状态会直接驱动多个页面的布局和内容，统一投递到主线程，避免 UI 在后台线程被更新。
-        [[[[[[LKConnectionManager sharedInstance].channelWillEnd filter:^BOOL(Lookin_PTChannel *channel) {
+        // 连接状态会直接驱动多个页面的布局和内容；channelWillEnd 已由 LKConnectionManager 保证主线程投递
+        [[[[[LKConnectionManager sharedInstance].channelWillEnd filter:^BOOL(id<LKAppChannel> channel) {
             @strongify(self);
             return channel == self.inspectingApp.channel;
 
-        }] deliverOnMainThread] flattenMap:^__kindof RACSignal * _Nullable(Lookin_PTChannel *channel) {
+        }] flattenMap:^__kindof RACSignal * _Nullable(Lookin_PTChannel *channel) {
             @strongify(self);
 
             NSLog(@"current connection end");
@@ -85,15 +85,8 @@ NSString *const LKInspectingAppDidEndNotificationName = @"LKInspectingAppDidEndN
 }
 
 - (void)setInspectingApp:(LKInspectableApp *)inspectingApp {
-    // 该属性被大量 UI 通过 KVO 观察。无论调用方在哪个线程（例如自动重连在 RACScheduler 后台线程上
-    // 完成），都统一切回主线程再赋值，避免在后台线程触发 NSSplitView / NSToolbar 等 UI 更新。
-    if (!NSThread.isMainThread) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            self.inspectingApp = inspectingApp;
-        });
-        return;
-    }
-
+    // 该属性被大量 UI 通过 KVO 观察。所有写入方（自动重连订阅、Launch/Static 窗口的 fetch 订阅）
+    // 依赖 LKConnectionManager 的主线程投递契约，均已在主线程执行，无需再防御性切线程。
     BOOL shouldPostNotification = (_inspectingApp && !inspectingApp);
     
     _inspectingApp = inspectingApp;
@@ -146,7 +139,7 @@ NSString *const LKInspectingAppDidEndNotificationName = @"LKInspectingAppDidEndN
             return [RACSignal return:nil];
         }
         
-        NSArray<RACSignal *> *signals = [connectedChannels lookin_map:^id(NSUInteger idx, Lookin_PTChannel *channel) {
+        NSArray<RACSignal *> *signals = [connectedChannels lookin_map:^id(NSUInteger idx, id<LKAppChannel> channel) {
             return [[[LKConnectionManager sharedInstance] requestWithType:LookinRequestTypeApp data:params channel:channel] catch:^RACSignal * _Nonnull(NSError * _Nonnull error) {
                 if (error.code == LookinErrCode_ServerVersionTooHigh || error.code == LookinErrCode_ServerVersionTooLow) {
                     // 这些 Lookin 版本不匹配的错误应该被保留，因为业务需要显示这些错误
@@ -174,7 +167,7 @@ NSString *const LKInspectingAppDidEndNotificationName = @"LKInspectingAppDidEndN
             }
             
             if ([value isKindOfClass:[RACTuple class]]) {
-                RACTupleUnpack(LookinConnectionResponseAttachment *response, Lookin_PTChannel *relatedChannel) = value;
+                RACTupleUnpack(LookinConnectionResponseAttachment *response, id<LKAppChannel> relatedChannel) = value;
                 if (response.error) {
                     NSAssert(NO, @"");
                     return nil;

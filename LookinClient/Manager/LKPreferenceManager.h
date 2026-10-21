@@ -78,7 +78,8 @@ extern NSString *const LKMCPSettingsDidChangeNotification;
 
 #pragma mark - MCP
 
-/// 是否启用内置 MCP server，默认为 NO
+/// 是否启用内置 MCP server，默认为 NO。
+/// 变更任意 MCP 设置都会 post LKMCPSettingsDidChangeNotification，App 内 server 据此重启
 @property(nonatomic, assign) BOOL mcpEnabled;
 
 /// MCP server 监听端口，默认为 47200

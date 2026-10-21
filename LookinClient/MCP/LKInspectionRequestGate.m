@@ -42,6 +42,10 @@
     return busy;
 }
 
+- (BOOL)uiMaySendDetailRequest {
+    return ![self mcpBusy];
+}
+
 - (void)beginMCPOperation {
     os_unfair_lock_lock(&_gateLock);
     self.operationCount += 1;

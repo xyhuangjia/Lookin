@@ -14,7 +14,8 @@
 @implementation LKInspectableApp
 
 - (LKChannelTransport)transport {
-	return [[LKConnectionManager sharedInstance] transportOfChannel:self.channel];
+	// channel 为 nil 时消息返回 0，恰为 LKChannelTransportLocal
+	return self.channel.transport;
 }
 
 - (RACSignal *)fetchHierarchyData {

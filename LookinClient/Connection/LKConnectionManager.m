@@ -32,7 +32,18 @@ NSString *const LKUnpairedWirelessDeviceDidArriveNotification = @"LKUnpairedWire
 /// 通道对象上绑定的来源类型（LKChannelTransport），用于 UI 区分 USB / Wi-Fi
 static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
 
-@implementation Lookin_PTChannel (LKConnection)
+/// 连接层内部的完整通道能力：在公开的 LKAppChannel 之上补充私有请求簿记。
+/// 只在本文件内使用，外界一律只见 id<LKAppChannel>
+@protocol LKAppChannelPrivate <LKAppChannel>
+@property(nonatomic, strong) NSMutableSet<LKConnectionRequest *> *activeRequests;
+@end
+
+/// 请求簿记的私有存储：绑定在 channel 对象上，只在连接层内部读写（含超时回调），不进入公开 interface
+@interface Lookin_PTChannel (LKConnectionPrivate) <LKAppChannelPrivate>
+@property(nonatomic, strong) NSMutableSet<LKConnectionRequest *> *activeRequests;
+@end
+
+@implementation Lookin_PTChannel (LKConnectionPrivate)
 
 - (void)setActiveRequests:(NSMutableSet<LKConnectionRequest *> *)activeRequests {
     [self lookin_bindObject:activeRequests forKey:@"activeRequest"];
@@ -44,7 +55,11 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
 
 @end
 
-@implementation ECOChannelDeviceInfo (LKConnection)
+@interface ECOChannelDeviceInfo (LKConnectionPrivate) <LKAppChannelPrivate>
+@property(nonatomic, strong) NSMutableSet<LKConnectionRequest *> *activeRequests;
+@end
+
+@implementation ECOChannelDeviceInfo (LKConnectionPrivate)
 
 - (void)setActiveRequests:(NSMutableSet<LKConnectionRequest *> *)activeRequests {
 	[self lookin_bindObject:activeRequests forKey:@"activeRequest"];
@@ -52,6 +67,23 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
 
 - (NSMutableSet<LKConnectionRequest *> *)activeRequests {
 	return [self lookin_getBindObjectForKey:@"activeRequest"];
+}
+
+@end
+
+@implementation Lookin_PTChannel (LKConnection)
+
+- (LKChannelTransport)transport {
+	NSNumber *bound = [self lookin_getBindObjectForKey:Key_BindingChannelTransport];
+	return bound.integerValue;
+}
+
+@end
+
+@implementation ECOChannelDeviceInfo (LKConnection)
+
+- (LKChannelTransport)transport {
+	return LKChannelTransportWireless;
 }
 
 @end
@@ -165,22 +197,9 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
 	return devices.copy;
 }
 
-- (LKChannelTransport)transportOfChannel:(id)channel {
-	if (!channel) {
-		return LKChannelTransportLocal;
-	}
-	if ([channel isKindOfClass:ECOChannelDeviceInfo.class]) {
-		return LKChannelTransportWireless;
-	}
-	NSNumber *bound = [(Lookin_PTChannel *)channel lookin_getBindObjectForKey:Key_BindingChannelTransport];
-	if (bound) {
-		return bound.integerValue;
-	}
-	return LKChannelTransportLocal;
-}
-
 - (RACSignal<ECOChannelDeviceInfo *> *)connectToWireless:(ECOChannelDeviceInfo *)device {
-	return [self _tryToConnectToWirelessDevice:device];
+	// 履行类头的线程契约：配对授权、ping 重试等内部路径统一在主线程交付
+	return [[self _tryToConnectToWirelessDevice:device] deliverOnMainThread];
 }
 
 - (NSString *)pairingCodeForDevice:(ECOChannelDeviceInfo *)device {
@@ -194,7 +213,7 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
 	[self.connectWirelessDevices removeObject:device];
 	[self.notConnectWirelessDevices removeObject:device];
 	[self.pairingCodes removeObjectForKey:@(device.hash)];
-	[self.channelWillEnd sendNext:device];
+	[self _sendChannelWillEndOnMain:device];
 }
 
 /// 对未配对设备发起蓝牙式配对：生成/复用 6 位码，携带在授权请求里发给手机；新配对时通知 UI 弹出设备列表
@@ -220,13 +239,14 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
 #pragma mark - Ports Connect
 
 - (RACSignal *)tryToConnectAllPorts {
-    return [[RACSignal zip:@[[self _tryToConnectAllSimulatorPorts],
-                             [self _tryToConnectAllUSBDevices],
-							 [self _tryToConnectToAllWirelessDevice]]] map:^id _Nullable(RACTuple * _Nullable value) {
+    // 端口连接回调来自 usbmux / 超时 scheduler 的后台线程，deliverOnMainThread 履行类头的线程契约
+    return [[[RACSignal zip:@[[self _tryToConnectAllSimulatorPorts],
+                              [self _tryToConnectAllUSBDevices],
+							  [self _tryToConnectToAllWirelessDevice]]] map:^id _Nullable(RACTuple * _Nullable value) {
 		RACTupleUnpack(NSArray<Lookin_PTChannel *> *simulatorChannels, NSArray<Lookin_PTChannel *> *usbChannels, NSArray<ECOChannelDeviceInfo *> *wirelessDevices) = value;
 		NSArray *connectedChannels = [[simulatorChannels arrayByAddingObjectsFromArray:usbChannels] arrayByAddingObjectsFromArray:wirelessDevices];
         return connectedChannels;
-    }];
+    }] deliverOnMainThread];
 }
 
 /// 返回的 x 为所有已成功链接的 Lookin_PTChannel 数组，该方法不会 sendError:
@@ -368,7 +388,7 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
 
 #pragma mark - Request
 
-- (void)pushWithType:(unsigned int)pushType data:(NSObject *)data channel:(Lookin_PTChannel *)channel {
+- (void)pushWithType:(unsigned int)pushType data:(NSObject *)data channel:(id<LKAppChannel>)channel {
     if (!channel || !channel.isConnected) {
         return;
     }
@@ -378,11 +398,18 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
         NSAssert(NO, @"");
     }
     NSLog(@"LookinClient - pushData, type:%@", @(pushType));
-    [channel sendFrameOfType:pushType tag:0 withPayload:payload callback:nil];
+    if ([channel isKindOfClass:Lookin_PTChannel.class]) {
+        [(Lookin_PTChannel *)channel sendFrameOfType:pushType tag:0 withPayload:payload callback:nil];
+    } else {
+        // 无线通道没有对等的 push 语义（历史实现即只支持 PeerTalk 帧），忽略而不是 unrecognized selector
+        NSLog(@"LookinClient - pushWithType ignored for non-PT channel, type:%@", @(pushType));
+    }
 }
 
-- (RACSignal *)requestWithType:(unsigned int)requestType data:(NSObject *)requestData channel:(Lookin_PTChannel *)channel {
-    return [RACSignal createSignal:^RACDisposable * _Nullable(id<RACSubscriber>  _Nonnull subscriber) {
+- (RACSignal *)requestWithType:(unsigned int)requestType data:(NSObject *)requestData channel:(id<LKAppChannel>)channel {
+    // 履行类头的线程契约：应答可能在 PeerTalk 委托线程（USB）或主队列（无线）抵达，
+    // 统一 deliverOnMainThread，调用方不再各自切线程
+    return [[RACSignal createSignal:^RACDisposable * _Nullable(id<RACSubscriber>  _Nonnull subscriber) {
         //        NSLog(@"LookinClient, level1 - will ping for request:%@, port:%@", @(type), @(channel.portNumber));
         NSTimeInterval timeoutInterval;
         if (requestType == LookinRequestTypeApp) {
@@ -392,7 +419,7 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
             timeoutInterval = 2;
         }
         
-        [self _requestWithType:LookinRequestTypePing channel:channel data:nil timeoutInterval:timeoutInterval succ:^(LookinConnectionResponseAttachment *pingResponse) {
+        [self _requestWithType:LookinRequestTypePing channel:(id<LKAppChannelPrivate>)channel data:nil timeoutInterval:timeoutInterval succ:^(LookinConnectionResponseAttachment *pingResponse) {
             // ping 成功了
             // NSLog(@"LookinClient, level1 - ping succ, will send request:%@, port:%@", @(type), @(channel.portNumber));
             NSError *versionErr = [self _checkServerVersionWithResponse:pingResponse];
@@ -401,7 +428,7 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
                 [subscriber sendError:versionErr];
             } else {
                 // 没问题，开始发真正请求
-                [self _requestWithType:requestType channel:channel data:requestData timeoutInterval:5 succ:^(id responseData) {
+                [self _requestWithType:requestType channel:(id<LKAppChannelPrivate>)channel data:requestData timeoutInterval:5 succ:^(id responseData) {
                     RACTuple *tupleResult = [RACTuple tupleWithObjects:responseData, channel, nil];
                     [subscriber sendNext:tupleResult];
                 } fail:^(NSError *error) {
@@ -417,7 +444,7 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
 
         } completion:nil];
         return nil;
-    }];
+    }] deliverOnMainThread];
 }
 
 - (NSError *)_checkServerVersionWithResponse:(LookinConnectionResponseAttachment *)pingResponse {
@@ -446,7 +473,7 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
 
 #pragma mark - Private
 
-- (void)_requestWithType:(unsigned int)requestType channel:(id<LookinChannelProtocol>)channel data:(NSObject *)data timeoutInterval:(NSTimeInterval)timeoutInterval succ:(void (^)(id data))succBlock fail:(void (^)(NSError *error))failBlock completion:(void (^)(void))completionBlock {
+- (void)_requestWithType:(unsigned int)requestType channel:(id<LKAppChannelPrivate>)channel data:(NSObject *)data timeoutInterval:(NSTimeInterval)timeoutInterval succ:(void (^)(id data))succBlock fail:(void (^)(NSError *error))failBlock completion:(void (^)(void))completionBlock {
     if (!channel) {
         NSAssert(NO, @"");
         if (failBlock) {
@@ -478,9 +505,9 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
 		ptChannel = (Lookin_PTChannel *)channel;
 	}
 	
-    if (channel.activeRequests.count && requestType != LookinRequestTypePing) {
+    if ([[channel activeRequests] count] && requestType != LookinRequestTypePing) {
         // 检查是否有相同 type 的旧请求尚在进行中，如果有则移除之前的旧请求（旧请求会被报告 error）
-        NSSet<LKConnectionRequest *> *requestsToBeDiscarded = [channel.activeRequests lookin_filter:^BOOL(LKConnectionRequest *obj) {
+        NSSet<LKConnectionRequest *> *requestsToBeDiscarded = [[channel activeRequests] lookin_filter:^BOOL(LKConnectionRequest *obj) {
             return (obj.type == requestType);
         }];
         [requestsToBeDiscarded enumerateObjectsUsingBlock:^(LKConnectionRequest * _Nonnull obj, BOOL * _Nonnull stop) {
@@ -489,8 +516,8 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
                 obj.failBlock(error);
             }
             [obj endTimeoutCount];
-            [channel.activeRequests removeObject:obj];
-            
+            [[channel activeRequests] removeObject:obj];
+
             NSLog(@"LookinClient - will discard request, type:%@, tag:%@", @(obj.type), @(obj.tag));
         }];
     }
@@ -507,7 +534,7 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
         @strongify(channel);
         NSError *error = [NSError errorWithDomain:LookinErrorDomain code:LookinErrCode_Timeout userInfo:@{NSLocalizedDescriptionKey:NSLocalizedString(@"Request timeout", nil), NSLocalizedRecoverySuggestionErrorKey:LookinErrorText_Timeout}];
         selfRequest.failBlock(error);
-        [channel.activeRequests removeObject:selfRequest];
+        [[channel activeRequests] removeObject:selfRequest];
     };
     
     LookinConnectionAttachment *attachment = [LookinConnectionAttachment new];
@@ -537,25 +564,26 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
 				}
 			} else {
 				// 成功发出了该 request
-				if (!channel.activeRequests) {
-					channel.activeRequests = [NSMutableSet set];
+				if (![channel activeRequests]) {
+					[channel setActiveRequests:[NSMutableSet set]];
 				}
-				[channel.activeRequests addObject:request];
+				[[channel activeRequests] addObject:request];
 				[request resetTimeoutCount];
 			}
 		}];
 	}
 }
 
-- (void)cancelRequestWithType:(unsigned int)requestType channel:(Lookin_PTChannel *)channel {
-    LKConnectionRequest *activeRequest = [channel.activeRequests lookin_firstFiltered:^BOOL(LKConnectionRequest *obj) {
+- (void)cancelRequestWithType:(unsigned int)requestType channel:(id<LKAppChannel>)channel {
+    id<LKAppChannelPrivate> privateChannel = (id<LKAppChannelPrivate>)channel;
+    LKConnectionRequest *activeRequest = [[privateChannel activeRequests] lookin_firstFiltered:^BOOL(LKConnectionRequest *obj) {
         return obj.type == requestType;
     }];
     if (!activeRequest) {
         return;
     }
     [activeRequest endTimeoutCount];
-    [channel.activeRequests removeObject:activeRequest];
+    [[privateChannel activeRequests] removeObject:activeRequest];
     if (activeRequest.completionBlock) {
         activeRequest.completionBlock();
     }
@@ -789,7 +817,10 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
         }
         
         RACTuple *tuple = [RACTuple tupleWithObjects:channel, @(type), unarchivedData, nil];
-        [self.didReceivePush sendNext:tuple];
+        // 履行类头的线程契约：PeerTalk 委托线程收到的 push 统一在主线程交付
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.didReceivePush sendNext:tuple];
+        });
         return;
     }
     
@@ -813,7 +844,7 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
 	[self _didReceiveDataWithChannel:channel data:data activeRequest:activeRequest];
 }
 
-- (void)_didReceiveDataWithChannel:(id<LookinChannelProtocol>)channel data:(NSData *)data activeRequest:(LKConnectionRequest *)activeRequest {
+- (void)_didReceiveDataWithChannel:(id<LKAppChannelPrivate>)channel data:(NSData *)data activeRequest:(LKConnectionRequest *)activeRequest {
 	NSError *unarchiveError = nil;
 	LookinConnectionResponseAttachment *attachment = [LKHelper lookinUnarchivedObjectFromData:data error:&unarchiveError];
 	if (unarchiveError) {
@@ -822,9 +853,9 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
 	
 	if (attachment.appIsInBackground) {
 		// app 处于后台模式
-		
+
 		[activeRequest endTimeoutCount];
-		[channel.activeRequests removeObject:activeRequest];
+		[[channel activeRequests] removeObject:activeRequest];
 		
 		if (activeRequest.failBlock) {
 			NSError *error = [NSError errorWithDomain:LookinErrorDomain code:LookinErrCode_PingFailForBackgroundState userInfo:@{NSLocalizedDescriptionKey:NSLocalizedString(@"The operation failed because target iOS app has entered to the background state.", nil)}];
@@ -860,7 +891,7 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
 	
 	if (hasReceivedAllResponses) {
 		[activeRequest endTimeoutCount];
-		[channel.activeRequests removeObject:activeRequest];
+		[[channel activeRequests] removeObject:activeRequest];
 		if (activeRequest.completionBlock) {
 			activeRequest.completionBlock();
 		}
@@ -901,9 +932,20 @@ static NSString * const Key_BindingChannelTransport = @"lk_channelTransport";
         [channel close];
         return;
     }
-    [self.channelWillEnd sendNext:channel];
+    [self _sendChannelWillEndOnMain:channel];
 
     [channel close];
+}
+
+/// channelWillEnd 的统一出口：保证订阅方总在主线程收到断开事件（见类头线程契约）
+- (void)_sendChannelWillEndOnMain:(id)channel {
+    if (NSThread.isMainThread) {
+        [self.channelWillEnd sendNext:channel];
+    } else {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.channelWillEnd sendNext:channel];
+        });
+    }
 }
 
 - (NSMutableDictionary<NSNumber *,NSString *> *)pairingCodes {

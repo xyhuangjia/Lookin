@@ -90,8 +90,9 @@
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_handleUnpairedDeviceArrived:) name:LKUnpairedWirelessDeviceDidArriveNotification object:nil];
 
     // 设备断开时立即刷新列表，不必等下一次 1.5 秒轮询；页面已关闭则忽略
+    //（channelWillEnd 由 LKConnectionManager 保证主线程投递）
     @weakify(self);
-    [[[LKConnectionManager sharedInstance].channelWillEnd deliverOnMainThread] subscribeNext:^(id  _Nullable channel) {
+    [[LKConnectionManager sharedInstance].channelWillEnd subscribeNext:^(id  _Nullable channel) {
         @strongify(self);
         if (![self _isVisible]) {
             return;
@@ -148,7 +149,8 @@
 
     self.isReloading = YES;
     @weakify(self);
-    [[[[LKAppsManager sharedInstance] fetchAppInfosWithImage:YES localInfos:self.appInfos] deliverOnMainThread] subscribeNext:^(NSArray<LKInspectableApp *> *apps) {
+    // fetchAppInfosWithImage 由连接层保证主线程投递
+    [[[LKAppsManager sharedInstance] fetchAppInfosWithImage:YES localInfos:self.appInfos] subscribeNext:^(NSArray<LKInspectableApp *> *apps) {
         @strongify(self);
         self.isReloading = NO;
 
@@ -250,9 +252,9 @@
     [LKPerformanceReporter.sharedInstance willStartReload];
     
     @weakify(self);
-    // 无线连接的响应在后台线程回调，这里会修改 inspectingApp（联动 toolbar App item 宽度约束）、
-    // 弹出 NSAlert 等 UI，必须切回主线程
-    [[[app fetchHierarchyData] deliverOnMainThread] subscribeNext:^(LookinHierarchyInfo *info) {
+    // fetchHierarchyData 由连接层保证主线程投递，这里直接更新 inspectingApp（联动 toolbar App item
+    // 宽度约束）、弹出 NSAlert 等 UI
+    [[app fetchHierarchyData] subscribeNext:^(LookinHierarchyInfo *info) {
         @strongify(self);
         
         if (!info) {
@@ -336,7 +338,7 @@
             [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(_reloadWithAutoEntering:) object:nil];
             [self.bottomIndicatorView animateToProgress:.8 duration:1];
             @weakify(self);
-            [[[LKAppsManager.sharedInstance fetchAppInfosWithImage:NO localInfos:self.appInfos] deliverOnMainThread] subscribeNext:^(NSArray<LKInspectableApp *> *apps) {
+            [[LKAppsManager.sharedInstance fetchAppInfosWithImage:NO localInfos:self.appInfos] subscribeNext:^(NSArray<LKInspectableApp *> *apps) {
                 @strongify(self);
                 LKInspectableApp *app = [apps lookin_firstFiltered:^BOOL(LKInspectableApp *app) {
                     return app.channel == device;

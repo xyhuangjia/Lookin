@@ -43,14 +43,14 @@
 		A2C71CBE282165DB0056D991 /* LKWindowToolbarAppButton.m in Sources */ = {isa = PBXBuildFile; fileRef = A2C71CBD282165DB0056D991 /* LKWindowToolbarAppButton.m */; };
 		A70A0C2E2B179754009A1937 /* LKDashboardAttributeShadowView.m in Sources */ = {isa = PBXBuildFile; fileRef = A70A0C2D2B179754009A1937 /* LKDashboardAttributeShadowView.m */; };
 		A70A0C352B17AA12009A1937 /* LKDashboardAttributeJsonView.m in Sources */ = {isa = PBXBuildFile; fileRef = A70A0C342B17AA12009A1937 /* LKDashboardAttributeJsonView.m */; };
-		A717997A2B948E6D00190438 /* LKReloadSingleItemUpdateTaskMaker.m in Sources */ = {isa = PBXBuildFile; fileRef = A71799792B948E6D00190438 /* LKReloadSingleItemUpdateTaskMaker.m */; };
-		A717997D2B94AAAD00190438 /* LKReloadItemAndChildrenUpdateTaskMaker.m in Sources */ = {isa = PBXBuildFile; fileRef = A717997C2B94AAAD00190438 /* LKReloadItemAndChildrenUpdateTaskMaker.m */; };
+		A7179A022B948E6D00190438 /* LKUpdateToken.m in Sources */ = {isa = PBXBuildFile; fileRef = A7179A012B948E6D00190438 /* LKUpdateToken.m */; };
 		A721E48E2B1CE2BC00546017 /* LKJSONAttributeWindowController.m in Sources */ = {isa = PBXBuildFile; fileRef = A721E48D2B1CE2BC00546017 /* LKJSONAttributeWindowController.m */; };
 		A721E4912B1CE2F000546017 /* LKJSONAttributeViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A721E4902B1CE2F000546017 /* LKJSONAttributeViewController.m */; };
 		A721E4942B1CE42800546017 /* LKJSONAttributeItem.m in Sources */ = {isa = PBXBuildFile; fileRef = A721E4932B1CE42800546017 /* LKJSONAttributeItem.m */; };
 		A74B5E812B25C9BE00566549 /* LKJSONAttributeContentView.m in Sources */ = {isa = PBXBuildFile; fileRef = A74B5E802B25C9BE00566549 /* LKJSONAttributeContentView.m */; };
 		A74C63072B540FDD0068FBB8 /* CwlDemangle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A74C63062B540FDD0068FBB8 /* CwlDemangle.swift */; };
 		A74C630C2B54131F0068FBB8 /* LKSwiftDemangler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A74C630B2B54131F0068FBB8 /* LKSwiftDemangler.swift */; };
+		A7179A072B948E6D00190438 /* LookinUpdateTaskEnums+LookinClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7179A062B948E6D00190438 /* LookinUpdateTaskEnums+LookinClient.swift */; };
 		A74C630F2B54202E0068FBB8 /* LookinObject+LookinClient.m in Sources */ = {isa = PBXBuildFile; fileRef = A74C630E2B54202E0068FBB8 /* LookinObject+LookinClient.m */; };
 		A74C63122B5429B60068FBB8 /* LookinAutoLayoutConstraint+LookinClient.m in Sources */ = {isa = PBXBuildFile; fileRef = A74C63112B5429B60068FBB8 /* LookinAutoLayoutConstraint+LookinClient.m */; };
 		A777C2A42B2F54D700677624 /* DanceScriptManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A777C2A32B2F54D700677624 /* DanceScriptManager.m */; };
@@ -166,6 +166,7 @@
 		AAC323172267ABD200BACA67 /* LKWindowController.m in Sources */ = {isa = PBXBuildFile; fileRef = AAC323162267ABD200BACA67 /* LKWindowController.m */; };
 		AAC41E1722686A28005CDD6E /* LKStaticHierarchyDataSource.m in Sources */ = {isa = PBXBuildFile; fileRef = AAC41E1522686A28005CDD6E /* LKStaticHierarchyDataSource.m */; };
 		AAC5E2DE228034DC0081A810 /* LKHierarchyDataSource.m in Sources */ = {isa = PBXBuildFile; fileRef = AAC5E2DD228034DC0081A810 /* LKHierarchyDataSource.m */; };
+		A7179A042B948E6D00190438 /* LKHierarchyColorMenuBuilder.m in Sources */ = {isa = PBXBuildFile; fileRef = A7179A032B948E6D00190438 /* LKHierarchyColorMenuBuilder.m */; };
 		AACBACAF22AE983F00A8F89D /* LKDashboardAttributeRectView.m in Sources */ = {isa = PBXBuildFile; fileRef = AACBACAE22AE983F00A8F89D /* LKDashboardAttributeRectView.m */; };
 		AACBACB222AEA6EA00A8F89D /* LKDashboardAttributeInsetsView.m in Sources */ = {isa = PBXBuildFile; fileRef = AACBACB122AEA6E900A8F89D /* LKDashboardAttributeInsetsView.m */; };
 		AAD2BECE226B1ED500E83D01 /* LKTableView.m in Sources */ = {isa = PBXBuildFile; fileRef = AAD2BECD226B1ED500E83D01 /* LKTableView.m */; };
@@ -294,10 +295,8 @@
 		A70A0C2D2B179754009A1937 /* LKDashboardAttributeShadowView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LKDashboardAttributeShadowView.m; sourceTree = "<group>"; };
 		A70A0C332B17AA12009A1937 /* LKDashboardAttributeJsonView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LKDashboardAttributeJsonView.h; sourceTree = "<group>"; };
 		A70A0C342B17AA12009A1937 /* LKDashboardAttributeJsonView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LKDashboardAttributeJsonView.m; sourceTree = "<group>"; };
-		A71799782B948E6D00190438 /* LKReloadSingleItemUpdateTaskMaker.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LKReloadSingleItemUpdateTaskMaker.h; sourceTree = "<group>"; };
-		A71799792B948E6D00190438 /* LKReloadSingleItemUpdateTaskMaker.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LKReloadSingleItemUpdateTaskMaker.m; sourceTree = "<group>"; };
-		A717997B2B94AAAD00190438 /* LKReloadItemAndChildrenUpdateTaskMaker.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LKReloadItemAndChildrenUpdateTaskMaker.h; sourceTree = "<group>"; };
-		A717997C2B94AAAD00190438 /* LKReloadItemAndChildrenUpdateTaskMaker.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LKReloadItemAndChildrenUpdateTaskMaker.m; sourceTree = "<group>"; };
+		A7179A002B948E6D00190438 /* LKUpdateToken.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LKUpdateToken.h; sourceTree = "<group>"; };
+		A7179A012B948E6D00190438 /* LKUpdateToken.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LKUpdateToken.m; sourceTree = "<group>"; };
 		A721E48C2B1CE2BC00546017 /* LKJSONAttributeWindowController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LKJSONAttributeWindowController.h; sourceTree = "<group>"; };
 		A721E48D2B1CE2BC00546017 /* LKJSONAttributeWindowController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LKJSONAttributeWindowController.m; sourceTree = "<group>"; };
 		A721E48F2B1CE2F000546017 /* LKJSONAttributeViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LKJSONAttributeViewController.h; sourceTree = "<group>"; };
@@ -309,6 +308,7 @@
 		A74C63052B540FDC0068FBB8 /* LookinClient-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "LookinClient-Bridging-Header.h"; sourceTree = "<group>"; };
 		A74C63062B540FDD0068FBB8 /* CwlDemangle.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CwlDemangle.swift; sourceTree = "<group>"; };
 		A74C630B2B54131F0068FBB8 /* LKSwiftDemangler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LKSwiftDemangler.swift; sourceTree = "<group>"; };
+		A7179A062B948E6D00190438 /* LookinUpdateTaskEnums+LookinClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LookinUpdateTaskEnums+LookinClient.swift"; sourceTree = "<group>"; };
 		A74C630D2B54202E0068FBB8 /* LookinObject+LookinClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "LookinObject+LookinClient.h"; sourceTree = "<group>"; };
 		A74C630E2B54202E0068FBB8 /* LookinObject+LookinClient.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "LookinObject+LookinClient.m"; sourceTree = "<group>"; };
 		A74C63102B5429B60068FBB8 /* LookinAutoLayoutConstraint+LookinClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "LookinAutoLayoutConstraint+LookinClient.h"; sourceTree = "<group>"; };
@@ -539,6 +539,8 @@
 		AAC41E1622686A28005CDD6E /* LKStaticHierarchyDataSource.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LKStaticHierarchyDataSource.h; sourceTree = "<group>"; };
 		AAC5E2DC228034DC0081A810 /* LKHierarchyDataSource.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = LKHierarchyDataSource.h; path = LookinClient/Hierarchy/LKHierarchyDataSource.h; sourceTree = SOURCE_ROOT; };
 		AAC5E2DD228034DC0081A810 /* LKHierarchyDataSource.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = LKHierarchyDataSource.m; path = LookinClient/Hierarchy/LKHierarchyDataSource.m; sourceTree = SOURCE_ROOT; };
+		A7179A032B948E6D00190438 /* LKHierarchyColorMenuBuilder.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LKHierarchyColorMenuBuilder.m; sourceTree = "<group>"; };
+		A7179A052B948E6D00190438 /* LKHierarchyColorMenuBuilder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LKHierarchyColorMenuBuilder.h; sourceTree = "<group>"; };
 		AACBACAD22AE983F00A8F89D /* LKDashboardAttributeRectView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LKDashboardAttributeRectView.h; sourceTree = "<group>"; };
 		AACBACAE22AE983F00A8F89D /* LKDashboardAttributeRectView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LKDashboardAttributeRectView.m; sourceTree = "<group>"; };
 		AACBACB022AEA6E900A8F89D /* LKDashboardAttributeInsetsView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LKDashboardAttributeInsetsView.h; sourceTree = "<group>"; };
@@ -665,6 +667,7 @@
 			isa = PBXGroup;
 			children = (
 				A1B2C3D4E5F60718293A4B41 /* LKMCPServer.swift */,
+				A7179A062B948E6D00190438 /* LookinUpdateTaskEnums+LookinClient.swift */,
 				A1B2C3D4E5F60718293A4B43 /* LKMCPService.swift */,
 				A1B2C3D4E5F60718293A4B61 /* LKMCPRouter.swift */,
 				A1B2C3D4E5F60718293A4B60 /* LKMCPWireProtocol.swift */,
@@ -1079,6 +1082,8 @@
 				AAD387332288632100042229 /* LKHierarchyController.m */,
 				AAC5E2DC228034DC0081A810 /* LKHierarchyDataSource.h */,
 				AAC5E2DD228034DC0081A810 /* LKHierarchyDataSource.m */,
+				A7179A052B948E6D00190438 /* LKHierarchyColorMenuBuilder.h */,
+				A7179A032B948E6D00190438 /* LKHierarchyColorMenuBuilder.m */,
 				A78FCEB22B334D3300F1D307 /* LKDanceUIAttrMaker.h */,
 				A78FCEB32B334D3300F1D307 /* LKDanceUIAttrMaker.m */,
 				601AD5E32A64D6110013F490 /* LKHierarchyDataSource+KeyDown.h */,
@@ -1105,10 +1110,8 @@
 				AAA8C11121CC17680017A345 /* LKStaticViewController.m */,
 				AAB872E4221C26B600C25294 /* LKStaticAsyncUpdateManager.h */,
 				AAB872E5221C26B600C25294 /* LKStaticAsyncUpdateManager.m */,
-				A71799782B948E6D00190438 /* LKReloadSingleItemUpdateTaskMaker.h */,
-				A71799792B948E6D00190438 /* LKReloadSingleItemUpdateTaskMaker.m */,
-				A717997B2B94AAAD00190438 /* LKReloadItemAndChildrenUpdateTaskMaker.h */,
-				A717997C2B94AAAD00190438 /* LKReloadItemAndChildrenUpdateTaskMaker.m */,
+				A7179A002B948E6D00190438 /* LKUpdateToken.h */,
+				A7179A012B948E6D00190438 /* LKUpdateToken.m */,
 				AAC41E1622686A28005CDD6E /* LKStaticHierarchyDataSource.h */,
 				AAC41E1522686A28005CDD6E /* LKStaticHierarchyDataSource.m */,
 				AAA8C0D421CC17680017A345 /* LKStaticWindowController.h */,
@@ -1462,6 +1465,7 @@
 				AAAEB36E22B408DF00A3DDE7 /* LKDashboardAttributeStringArrayView.m in Sources */,
 				AAB09025229D736F00159B15 /* LKOutlineView.m in Sources */,
 				AAC5E2DE228034DC0081A810 /* LKHierarchyDataSource.m in Sources */,
+				A7179A042B948E6D00190438 /* LKHierarchyColorMenuBuilder.m in Sources */,
 				1892DD1C2AF258890016D61B /* LookinDisplayItem+LookinClient.m in Sources */,
 				AAC1FB212282EDC6000A3653 /* LKWindowToolbarHelper.m in Sources */,
 				A26EF69827F89F83005A9E4E /* ShortCocoa+Layout.m in Sources */,
@@ -1490,6 +1494,7 @@
 				AAD387312288624600042229 /* LKReadViewController.m in Sources */,
 				AAA8C12221CC17680017A345 /* LKLabel.m in Sources */,
 				A74C630C2B54131F0068FBB8 /* LKSwiftDemangler.swift in Sources */,
+				A7179A072B948E6D00190438 /* LookinUpdateTaskEnums+LookinClient.swift in Sources */,
 				AABE9005224169D200030361 /* LKAppMenuManager.m in Sources */,
 				AAF418C522BA2C9600111554 /* LKConsoleSelectPopoverItemControl.m in Sources */,
 				AAA8C12721CC17680017A345 /* LKImageControl.m in Sources */,
@@ -1500,7 +1505,7 @@
 				AAD387342288632100042229 /* LKHierarchyController.m in Sources */,
 				AAA8C15F21CC17680017A345 /* LKLaunchAppView.m in Sources */,
 				AAA8C15921CC17680017A345 /* LKPreviewStageView.m in Sources */,
-				A717997A2B948E6D00190438 /* LKReloadSingleItemUpdateTaskMaker.m in Sources */,
+				A7179A022B948E6D00190438 /* LKUpdateToken.m in Sources */,
 				1822E2CB2B9396B50007C0B2 /* LKDashboardTextControlEditingFlag.m in Sources */,
 				AA30216021F32908000B0084 /* LKColorIndicatorLayer.m in Sources */,
 				D4052AC9235CBD090033C961 /* LKMeasureTutorialView.m in Sources */,
@@ -1516,7 +1521,6 @@
 				AAEF2C122308420400CFAC53 /* LKDisplayItemNode.m in Sources */,
 				AA17857E22DE65D20042C8F0 /* LKTutorialPopoverController.m in Sources */,
 				D4D1B2D32353975A002A5071 /* LKWindowToolbarScaleView.m in Sources */,
-				A717997D2B94AAAD00190438 /* LKReloadItemAndChildrenUpdateTaskMaker.m in Sources */,
 				AAF418C822BA2D1300111554 /* LKImageTextView.m in Sources */,
 				183875EB2B2F339B005FE951 /* LKTableViewHorizontalScrollWidthManager.m in Sources */,
 				AAA8C15C21CC17680017A345 /* LKStaticWindowController.m in Sources */,

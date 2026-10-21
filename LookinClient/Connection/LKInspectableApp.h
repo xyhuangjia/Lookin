@@ -13,7 +13,7 @@
 #import "LookinAttributesGroup.h"
 #import "LKConnectionManager.h"
 
-@class Lookin_PTChannel, LookinDisplayItemTrace, LookinInvocationRequest, LookinHierarchyInfo, LookinStaticAsyncUpdateTasksPackage, LookinStaticAsyncUpdateTask;
+@class LookinDisplayItemTrace, LookinInvocationRequest, LookinHierarchyInfo, LookinStaticAsyncUpdateTasksPackage, LookinStaticAsyncUpdateTask;
 
 @interface LKInspectableApp : NSObject
 
@@ -21,12 +21,14 @@
 
 @property(nonatomic, strong) LookinAppInfo *appInfo;
 
-@property(nonatomic, weak) Lookin_PTChannel *channel;
+/// 连接通道。调用方只见 LKAppChannel interface，不感知 USB / 无线的具体传输类型
+@property(nonatomic, weak) id<LKAppChannel> channel;
 
 /// 该 app 实际经由的连接通道（USB / 无线 / 本机），由拉取到它的 channel 决定，
 /// 不依赖 server 下发的 isWireless 标记（旧版 server 在 USB、Wi-Fi 并存时会标错）
 @property(nonatomic, readonly) LKChannelTransport transport;
 
+/// 线程契约：以下所有 RACSignal 输出均由 LKConnectionManager 保证在主线程投递，订阅方无需再切线程
 - (RACSignal *)fetchHierarchyData;
 
 - (RACSignal *)submitInbuiltModification:(LookinAttributeModification *)modification;
